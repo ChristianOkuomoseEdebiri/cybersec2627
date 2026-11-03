@@ -474,234 +474,191 @@ docker compose down
 
 ## Actividades
 
-> Practica con lo visto en la unidad. Usa solo lo que ya conoces: **variables**, **operadores**, condicionales **`if` / `elif` / `else`** y acceso a **diccionarios**. No necesitas escribir bucles ni definir funciones. Intenta cada una **antes** de abrir la solución.
+Estas actividades nacen directamente de los labs. Algunas piden que **pruebes algo** modificando el código o los comandos; otras piden que **pienses** sobre lo que viste.
 
-**1 · 🟢 ¿Activa o pasiva?** Tienes `medida = "firewall"`. Escribe un `if` que imprima `"ACTIVA"` si la medida es `"firewall"`, `"antivirus"` o `"ids"`, y `"PASIVA"` en otro caso.
-<details class="sol"><summary>Solución</summary>
+### Lab 1 · psutil
 
-```python
-medida = "firewall"
-if medida in ("firewall", "antivirus", "ids"):
-    print("ACTIVA")
-else:
-    print("PASIVA")
+**A1.** Ejecutaste `auditor_sistema.py` dentro del contenedor y viste solo 1 proceso. Ahora ejecútalo **directamente en tu máquina** (sin Docker). ¿Cuántos procesos ves? Explica en una frase por qué la diferencia.
+
+**A2.** En `auditor_sistema.py` la línea es `psutil.cpu_percent(interval=0.3)`. Cambia `interval=0.3` por nada, es decir, `psutil.cpu_percent()`. ¿Qué valor da ahora la primera vez que se ejecuta? ¿Por qué?
+
+**A3.** El bucle de procesos captura dos excepciones: `NoSuchProcess` y `AccessDenied`. ¿Qué pasaría si eliminaras el `try/except` y un proceso terminara justo mientras lo lees?
+
+### Lab 2 · nmap
+
+**A4.** En el Lab 2 ejecutaste `nmap servidor` y luego `nmap -sV servidor`. ¿Qué información adicional te da la segunda que no da la primera? ¿Por qué esa información extra es útil para una auditoría?
+
+**A5.** El script `informe.py` cruza la versión detectada con `NVD_LOCAL`. Si el servidor estuviera corriendo `Apache/2.4.49` en vez de nginx, ¿qué CVE aparecería en el informe? Búscalo en el diccionario del código y escribe la respuesta.
+
+**A6.** ¿Por qué desde el contenedor `auditor` puedes hacer `nmap servidor` usando el nombre `servidor`, pero desde tu terminal (fuera de Docker) ese nombre no funcionaría?
+
+### Lab 3 · Monitorización
+
+**A7.** En el Lab 3 ejecutaste:
+```bash
+grep "Failed password" auth.log | grep -oE "from [0-9.]+" | awk '{print $2}' | sort | uniq -c | sort -rn
 ```
-</details>
+Explica qué hace cada parte separada por `|`. ¿Qué ocurriría si quitaras el último `sort -rn`?
 
-**2 · 🟢 ¿Puerto abierto?** nmap marca cada puerto con un estado. Dado `estado = "open"`, imprime `"ABIERTO"` si el estado es `"open"` y `"cerrado"` en otro caso.
-<details class="sol"><summary>Solución</summary>
+**A8.** El detector usa `UMBRAL = 3`. Cambia el umbral a `1` y vuelve a ejecutar `detector.py`. ¿Qué IPs se marcan ahora? ¿Es eso un problema? ¿Cómo se llama este tipo de resultado en seguridad?
 
-```python
-estado = "open"
-if estado == "open":
-    print("ABIERTO")
-else:
-    print("cerrado")
-```
-</details>
-
-**3 · 🟡 ¿Supera el umbral?** Tienes `fallos = 4` y `umbral = 3`. Imprime `"ALERTA"` si los fallos llegan o superan el umbral, y `"normal"` si no.
-<details class="sol"><summary>Solución</summary>
-
-```python
-fallos = 4
-umbral = 3
-if fallos >= umbral:
-    print("ALERTA")
-else:
-    print("normal")
-```
-</details>
-
-**4 · 🟡 ¿Versión vulnerable?** Tienes un diccionario `nvd = {"nginx/1.18.0": "CVE-2021-23017"}` y una variable `banner = "nginx/1.18.0"`. Imprime el CVE si el banner está en la NVD, y `"sin vulnerabilidades conocidas"` si no.
-<details class="sol"><summary>Solución</summary>
-
-```python
-nvd = {"nginx/1.18.0": "CVE-2021-23017"}
-banner = "nginx/1.18.0"
-if banner in nvd:
-    print(nvd[banner])
-else:
-    print("sin vulnerabilidades conocidas")
-```
-</details>
-
-**5 · 🟠 Clasificar una alerta.** Tienes `tipo = "404"` (el código de una petición web). Imprime `"rastreo de rutas"` si es `"404"`, `"acceso normal"` si es `"200"`, y `"otro"` en cualquier otro caso.
-<details class="sol"><summary>Solución</summary>
-
-```python
-tipo = "404"
-if tipo == "404":
-    print("rastreo de rutas")
-elif tipo == "200":
-    print("acceso normal")
-else:
-    print("otro")
-```
-</details>
-
-### Ejercicios propuestos (sin solución)
-
-Ahora tú solo, con las mismas reglas (variables, `if`, sin bucles ni funciones):
-
-**P1 · 🟢** Dada `herramienta = "IDS"`, imprime `"solo avisa"` si es `"IDS"` y `"avisa y bloquea"` si es `"IPS"`.
-
-**P2 · 🟡** Tienes `puertos_distintos = 6` y `umbral = 5`. Imprime `"escaneo de puertos"` si se alcanza el umbral, y `"normal"` si no.
-
-**P3 · 🟠** Dado un diccionario `alerta = {"ip": "10.0.0.66", "motivo": "fuerza bruta"}`, imprime la IP y el motivo solo si el motivo es `"fuerza bruta"` o `"escaneo"`.
+**A9.** La IP `10.0.0.66` aparece como atacante tanto en `auth.log` como en `web.log`. ¿Qué dos tipos de ataque distintos estaba realizando simultáneamente? ¿Qué tiene de útil detectar los dos a la vez?
 
 ## Cómo se evalúa esta unidad (RA2)
 
-La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tipo test** (preguntas de opción múltiple como las del simulacro).
+La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tipo test**.
 
 !!! tip "La nota, sin sorpresas"
     **Nota = (aciertos ÷ nº de preguntas) × 10.** Los fallos no restan. Se aprueba con 5.
 
-Los laboratorios no puntúan: son tu forma de entender la materia y de llegar preparado al test.
-
 ## Simulacro de examen tipo test
 
-> 15 preguntas de opción múltiple, **una sola respuesta correcta**. Hazlo sin mirar y corrige con las soluciones desplegables.
+> 15 preguntas. Mezclan teoría y cosas que viste en los labs. Una sola respuesta correcta.
 
-**1.** ¿Cuál es una medida de seguridad **activa**?
+**1.** En el Lab 1 viste que dentro del contenedor solo aparecía **1 proceso**. ¿Qué explica esto?
 
-- A) Una copia de seguridad diaria
-- B) Un firewall que filtra el tráfico entrante
-- C) Un SAI que mantiene la corriente
-- D) Un sistema de servidores redundantes
+- A) `psutil` tiene un bug dentro de Docker
+- B) El contenedor está aislado y solo ve sus propios procesos, no los del anfitrión
+- C) El sistema operativo del contenedor es diferente
+- D) Falta instalar una dependencia
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El firewall previene/detiene el incidente mientras ocurre (activa). Copias, SAI y redundancia reducen el daño después (pasiva).</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El aislamiento de contenedores hace que cada uno vea solo sus propios procesos. Es una característica de seguridad, no un error.</details>
 
-**2.** La diferencia entre un **IDS** y un **IPS** es que:
+**2.** En `auditor_sistema.py`, la primera llamada a `psutil.cpu_percent()` sin `interval` devuelve `0.0`. ¿Por qué?
 
-- A) El IDS es software y el IPS hardware
-- B) El IDS detecta y avisa; el IPS detecta y además bloquea
-- C) El IDS vigila la red y el IPS un equipo
-- D) Son lo mismo
+- A) Porque la CPU está al 0% en ese momento
+- B) Porque sin `interval` no tiene un instante anterior con el que comparar el uso
+- C) Porque `psutil` no funciona correctamente
+- D) Porque el contenedor no tiene CPU asignada
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> IDS = detección y aviso; IPS = detección + bloqueo.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El porcentaje de CPU es una comparación entre dos momentos. La primera llamada sin <code>interval</code> no tiene punto de referencia, así que devuelve 0.0.</details>
 
-**3.** En análisis de riesgos, un servicio SSH **sin actualizar** con un fallo conocido es una:
+**3.** En el Lab 2, ¿qué diferencia hay entre `nmap servidor` y `nmap -sV servidor`?
 
-- A) Amenaza
-- B) Vulnerabilidad
-- C) Salvaguarda
-- D) Copia de seguridad
+- A) No hay diferencia, son equivalentes
+- B) `nmap servidor` solo descubre puertos abiertos; `-sV` además detecta el software y su versión
+- C) `-sV` es más rápido
+- D) `nmap servidor` detecta versiones; `-sV` solo puertos
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La vulnerabilidad es la debilidad que se puede explotar; la amenaza es quien la aprovecharía.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Sin <code>-sV</code> nmap solo dice "puerto 80 abierto". Con <code>-sV</code> dice "puerto 80, nginx 1.18.0" — esa versión es la clave para buscar vulnerabilidades.</details>
 
-**4.** ¿Qué es un **CVE**?
+**4.** Tras ejecutar `nmap -sV servidor` en el Lab 2, la salida mostraba `nginx 1.18.0`. ¿Para qué sirvió esa información en el paso siguiente?
 
-- A) Un antivirus
-- B) El identificador público de una vulnerabilidad conocida
-- C) Un tipo de cortafuegos
-- D) Un protocolo de red
+- A) Para cerrar ese puerto
+- B) Para cruzarla con la NVD y encontrar que tiene el CVE-2021-23017
+- C) Para saber qué sistema operativo usa el servidor
+- D) Para descifrar el tráfico
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un CVE (p. ej. CVE-2021-23017) identifica de forma única una vulnerabilidad registrada en la NVD.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El script <code>informe.py</code> cruza la versión detectada con <code>NVD_LOCAL</code> y encuentra que <code>nginx/1.18.0</code> tiene una vulnerabilidad conocida registrada.</details>
 
-**5.** La **detección de versiones** (el `-sV` de nmap) sirve para:
+**5.** En el Lab 2, `nmap` guarda el resultado con `-oX resultado.xml`. ¿Por qué en formato XML y no solo en pantalla?
 
-- A) Borrar los registros de un servidor
-- B) Averiguar qué software y versión corre en un puerto, para buscar sus vulnerabilidades
-- C) Cifrar el tráfico de red
-- D) Bloquear una IP
+- A) Porque XML ocupa menos espacio
+- B) Porque XML puede leerse con un programa; así `informe.py` lo procesa automáticamente
+- C) Porque nmap no puede mostrar en pantalla
+- D) Por motivos de seguridad
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Saber que un puerto corre, por ejemplo, <code>nginx 1.18.0</code> permite cruzar esa versión con la NVD y ver si tiene vulnerabilidades conocidas.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El XML es un formato estructurado que Python puede parsear con <code>ElementTree</code>. Permite automatizar el análisis en vez de leer la pantalla a mano.</details>
 
-**6.** ¿Qué hace la opción `-sV` de nmap?
+**6.** ¿Qué es un **CVE**?
 
-- A) Escanea más rápido
-- B) Detecta el software y la versión que corre en cada puerto
-- C) Oculta el escaneo
-- D) Cierra los puertos abiertos
+- A) Un tipo de antivirus
+- B) El identificador único de una vulnerabilidad conocida y publicada
+- C) Un algoritmo de cifrado
+- D) Un tipo de firewall
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>-sV</code> (version detection) averigua qué servicio y versión hay en cada puerto, que es lo que permite buscar sus vulnerabilidades.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> CVE (Common Vulnerabilities and Exposures) es el identificador estándar de vulnerabilidades, como CVE-2021-23017. La NVD las recoge todas.</details>
 
-**7.** ¿Para qué sirve la **NVD** (National Vulnerability Database)?
+**7.** En el Lab 3 ejecutaste este comando y obtuviste `4 10.0.0.66`. ¿Qué significa ese resultado?
 
-- A) Para almacenar contraseñas
-- B) Para consultar qué vulnerabilidades conocidas afecta a una versión de software
-- C) Para cifrar ficheros
-- D) Para generar tráfico de red
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La NVD es la base pública de vulnerabilidades (CVE); cruzar la versión detectada con ella dice si el software es vulnerable.</details>
-
-**8.** En `auth.log`, muchas líneas `Failed password` desde la misma IP indican:
-
-- A) Un acceso correcto
-- B) Un intento de fuerza bruta
-- C) Una copia de seguridad
-- D) Tráfico cifrado
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Repetir intentos fallidos de login desde una IP es el patrón de la fuerza bruta.</details>
-
-**9.** En un log web, muchos códigos **404** desde la misma IP sugieren:
-
-- A) Que la web funciona perfectamente
-- B) Un rastreo de rutas (el atacante prueba páginas que no existen)
-- C) Un acceso autorizado
-- D) Un error del navegador del administrador
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Probar muchas rutas inexistentes (/admin, /.env, /backup.zip…) es típico de quien busca puntos de entrada.</details>
-
-**10.** ¿Qué imprime este código?
-
-```python
-from collections import Counter
-fallos = Counter()
-for ip in ["1.1.1.1", "1.1.1.1", "2.2.2.2"]:
-    fallos[ip] += 1
-print(dict(fallos))
+```bash
+grep "Failed password" auth.log | grep -oE "from [0-9.]+" | awk '{print $2}' | sort | uniq -c | sort -rn
 ```
 
-- A) `{'1.1.1.1': 1, '2.2.2.2': 1}`
-- B) `{'1.1.1.1': 2, '2.2.2.2': 1}`
-- C) `{'1.1.1.1': 3}`
-- D) `{}`
+- A) La IP 10.0.0.66 tiene 4 puertos abiertos
+- B) La IP 10.0.0.66 ha fallado 4 veces al intentar hacer login
+- C) Hay 4 usuarios con contraseña incorrecta
+- D) El servidor ha reiniciado 4 veces
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>Counter</code> cuenta repeticiones: <code>1.1.1.1</code> aparece dos veces y <code>2.2.2.2</code> una.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El comando filtra las líneas de fallo de login, extrae la IP y las cuenta. "4 10.0.0.66" significa que esa IP acumuló 4 intentos fallidos.</details>
 
-**11.** Al analizar un log web, muchas peticiones con código **404** desde la misma IP indican que el atacante está:
+**8.** También ejecutaste `grep " 404$" web.log | awk '{print $1}' | sort | uniq -c | sort -rn` y obtuviste `4 10.0.0.66`. ¿Qué estaba haciendo esa IP en el servidor web?
 
 - A) Descargando ficheros grandes
-- B) Rastreando rutas que no existen, buscando puntos de entrada
-- C) Haciendo una copia de seguridad
+- B) Probando rutas que no existen, buscando páginas de administración o backups
+- C) Actualizando el servidor
 - D) Navegando con normalidad
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Pedir muchas rutas inexistentes (/admin, /.env, /backup.zip…) es típico de quien busca por dónde entrar; cada intento fallido deja un 404.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Pedir muchas rutas inexistentes (/admin, /.env, /wp-login.php…) es rastreo de rutas: el atacante busca puntos de entrada o ficheros sensibles.</details>
 
-**12.** ¿Por qué el detector usa un **umbral** antes de lanzar una alerta?
+**9.** En `detector.py`, el `UMBRAL = 3` evita una cosa concreta. ¿Cuál?
 
-- A) Para que el programa vaya más rápido
-- B) Para no alertar por uno o dos intentos normales (evitar falsos positivos)
-- C) Porque Python lo exige
-- D) Para cifrar los logs
+- A) Que el programa sea demasiado lento
+- B) Que se generen alertas por uno o dos intentos normales (falsos positivos)
+- C) Que el fichero de log sea demasiado grande
+- D) Que Python lance una excepción
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El umbral separa el ruido normal (un despiste) de un patrón de ataque, reduciendo los falsos positivos.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un usuario puede equivocarse una vez al escribir su contraseña. El umbral evita generar una alerta de fuerza bruta por eso; solo alerta cuando el patrón es repetido.</details>
 
-**13.** Que una IP supere el umbral de fallos, ¿demuestra que hay un ataque?
+**10.** La misma IP `10.0.0.66` apareció en el Lab 2 (auditor) y en el Lab 3 (detectada). ¿Qué demuestra esto?
 
-- A) Sí, es una prueba definitiva
-- B) No: es un patrón sospechoso que hay que verificar
-- C) Sí, hay que bloquearla sin comprobar nada
-- D) No significa nada
+- A) Que hay un error en el laboratorio
+- B) Que las acciones del auditor dejan rastro en los logs, y el defensor puede detectarlas
+- C) Que los dos labs usan la misma IP por casualidad
+- D) Que la IP pertenece al servidor
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un umbral superado señala para investigar; podría ser también un script mal configurado o credenciales caducadas.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Es la misma acción vista desde los dos lados: escanear y tantear deja huella en logs y tráfico. El defensor detecta exactamente lo que el auditor hizo.</details>
 
-**14.** En el laboratorio, la IP `10.0.0.66` aparece como auditor (Lab 2) y como atacante detectado (Lab 3). ¿Qué ilustra esto?
+**11.** Diferencia entre **IDS** e **IPS**:
 
-- A) Que hay dos atacantes distintos
-- B) Que atacar y detectar son la misma acción vista desde los dos lados
-- C) Que el laboratorio tiene un error
-- D) Que la IP cambió de dueño
+- A) Son lo mismo
+- B) El IDS avisa cuando detecta algo sospechoso; el IPS además lo bloquea automáticamente
+- C) El IDS bloquea; el IPS avisa
+- D) El IDS vigila ficheros; el IPS vigila la red
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Lo que el auditor hace (escanear, tantear logins, probar rutas) es justo lo que el defensor detecta en los registros.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El detector Python del Lab 3 es un IDS básico: detecta y avisa. Un IPS iría más lejos y bloquearía la IP automáticamente.</details>
 
-**15.** ¿Qué diferencia a un **IDS** de un **firewall**?
+**12.** ¿Qué imprime este fragmento de `informe.py` si `producto = "nginx"` y `version = "1.18.0"`?
 
-- A) El firewall detecta y el IDS bloquea
-- B) El firewall filtra el tráfico según reglas; el IDS observa y avisa de actividad sospechosa
-- C) Son lo mismo
-- D) El IDS solo funciona en Windows
+```python
+NVD_LOCAL = {
+    ("nginx", "1.18.0"): "CVE-2021-23017 (resolver, gravedad alta)",
+}
+cve = NVD_LOCAL.get(("nginx", "1.18.0"), "")
+marca = f"VULNERABLE: {cve}" if cve else "sin vulnerabilidades conocidas"
+print(marca)
+```
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El firewall decide qué pasa (prevención); el IDS vigila lo que ocurre y avisa (detección).</details>
+- A) `sin vulnerabilidades conocidas`
+- B) `VULNERABLE: CVE-2021-23017 (resolver, gravedad alta)`
+- C) `("nginx", "1.18.0")`
+- D) `None`
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La clave <code>("nginx", "1.18.0")</code> existe en el diccionario, así que <code>cve</code> no es vacío y se imprime la cadena <code>VULNERABLE: ...</code>.</details>
+
+**13.** ¿Qué hace la seguridad **activa** que no hace la pasiva?
+
+- A) Guarda copias de seguridad
+- B) Previene o detiene el incidente mientras ocurre
+- C) Mantiene el sistema encendido con un SAI
+- D) Proporciona servidores redundantes
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La seguridad activa actúa antes y durante el incidente (firewall, IDS, antivirus). La pasiva reduce el daño después (copias, redundancia).</details>
+
+**14.** En el Lab 2, el servidor nginx está en la red Docker pero **sin `ports:`**. ¿Puedes acceder a él desde tu navegador directamente por su IP?
+
+- A) Sí, siempre que sepas su IP
+- B) No, sin `ports:` el servidor no es accesible desde fuera de la red Docker
+- C) Sí, usando el nombre `servidor`
+- D) Solo si usas HTTPS
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Sin <code>ports:</code>, Docker no crea ningún puente entre la red del contenedor y tu máquina. Solo otros contenedores en la misma red pueden llegar a él.</details>
+
+**15.** Que una IP supere el umbral de fallos en el detector, ¿demuestra definitivamente que hay un ataque?
+
+- A) Sí, es prueba suficiente
+- B) No; es un patrón sospechoso que hay que investigar, puede ser un script mal configurado
+- C) Sí, hay que bloquearla inmediatamente
+- D) No significa nada relevante
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El umbral es una señal para investigar. Un resultado automático nunca es prueba definitiva: puede ser un falso positivo.</details>

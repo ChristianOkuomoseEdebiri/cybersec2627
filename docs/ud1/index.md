@@ -894,784 +894,242 @@ print("¿Sigue intacta?:", sha256_fichero("prueba.log") == precinto)
 
 ## 9. Actividades: de lo más sencillo a preguntas tipo examen
 
-> Una única escalera, sin saltos: empieza por el 🟢 1 y no mires la solución hasta intentarlo. Al final tienes preguntas del mismo estilo que el examen. Librerías reales: `hashlib`, `hmac`, `secrets`, `pathlib`, `re`, `cryptography`.
+Estas actividades nacen de los scripts que ejecutaste en la unidad. Algunas piden que **modifiques algo y observes el resultado**; otras que **pienses** sobre lo que viste.
 
-**1 · 🟢 Verificar una descarga** — acabas de descargar un fichero y la web publica su SHA-256. `descarga_integra(contenido: str, hash_publicado: str) -> bool`: ¿coincide de verdad?
-<details class="sol"><summary>Solución</summary>
+### Hash e integridad
 
-```python
-import hashlib, hmac
-def descarga_integra(contenido: str, hash_publicado: str) -> bool:
-    hash_real = hashlib.sha256(contenido.encode("utf-8")).hexdigest()
-    return hmac.compare_digest(hash_real, hash_publicado.strip().lower())
-```
-</details>
-
-**2 · 🟢 ¿Ha cambiado el fichero?** — guardaste el hash de un `config.ini` la semana pasada. `ha_cambiado(hash_guardado: str, contenido_actual: str) -> bool`: ¿es distinto ahora? (es, en miniatura, cómo se comprueba si un fichero ha cambiado).
-<details class="sol"><summary>Solución</summary>
-
-```python
-import hashlib, hmac
-def ha_cambiado(hash_guardado: str, contenido_actual: str) -> bool:
-    hash_actual = hashlib.sha256(contenido_actual.encode("utf-8")).hexdigest()
-    return not hmac.compare_digest(hash_actual, hash_guardado.strip().lower())
-```
-</details>
-
-**3 · 🟢 Clasificar incidente** — `pilar(x)` para `"filtracion"/"alteracion"/"caida"` → `"C"`/`"I"`/`"D"`.
-<details class="sol"><summary>Solución</summary>
-
-```python
-def pilar(x: str) -> str:
-    return {"filtracion": "C", "alteracion": "I", "caida": "D"}.get(x, "?")
-```
-</details>
-
-**4 · 🟢 ¿Formato de hash válido?** — `es_sha256(cadena: str) -> bool` con una expresión regular (64 hex).
-<details class="sol"><summary>Solución</summary>
-
-```python
-import re
-def es_sha256(cadena: str) -> bool:
-    return bool(re.fullmatch(r"[0-9a-f]{64}", cadena.strip().lower()))
-```
-</details>
-
-**5 · 🟡 Hash de bytes por bloques** — `hash_bloques(datos: bytes, n: int = 1024) -> str`.
-<details class="sol"><summary>Solución</summary>
+**1 · 🟢** Ejecutaste `avalancha.py` y viste que cambiar una letra cambiaba casi todo el hash. Ahora predice: ¿los dos hashes de abajo tendrán muchos o pocos caracteres en común?
 
 ```python
 import hashlib
-def hash_bloques(datos: bytes, n: int = 1024) -> str:
-    h = hashlib.sha256()
-    for i in range(0, len(datos), n):
-        h.update(datos[i:i + n])
-    return h.hexdigest()
-```
-</details>
-
-**6 · 🟡 Contar cambios (avalancha)** — `avalancha(a: str, b: str) -> int`: caracteres hex distintos entre sus SHA-256.
-<details class="sol"><summary>Solución</summary>
-
-```python
-import hashlib
-def avalancha(a: str, b: str) -> int:
-    ha = hashlib.sha256(a.encode()).hexdigest()
-    hb = hashlib.sha256(b.encode()).hexdigest()
-    return sum(1 for x, y in zip(ha, hb) if x != y)
-```
-</details>
-
-**7 · 🟡 Sal aleatoria** — `con_sal(pwd: str) -> tuple[str, str]` con `secrets` (no `random`).
-<details class="sol"><summary>Solución</summary>
-
-```python
-import hashlib, secrets
-def con_sal(pwd: str) -> tuple[str, str]:
-    sal = secrets.token_hex(16)
-    return sal, hashlib.sha256((sal + pwd).encode()).hexdigest()
-```
-</details>
-
-**8 · 🟡 Detectar el algoritmo por longitud** — `adivina(hash_hex: str) -> str`: `"md5"` (32), `"sha1"` (40), `"sha256"` (64) o `"desconocido"`.
-<details class="sol"><summary>Solución</summary>
-
-```python
-def adivina(hash_hex: str) -> str:
-    return {32: "md5", 40: "sha1", 64: "sha256"}.get(len(hash_hex.strip()), "desconocido")
-```
-</details>
-
-**9 · 🟠 Manifiesto: ficheros alterados** — `alterados(esperados, actuales) -> list[str]`.
-<details class="sol"><summary>Solución</summary>
-
-```python
-def alterados(esperados: dict[str, str], actuales: dict[str, str]) -> list[str]:
-    return [f for f, h in esperados.items() if actuales.get(f) != h]
-```
-</details>
-
-**10 · 🟠 Auditoría completa** — `audita(man, ahora) -> dict[str,str]` con estados `OK`/`MODIFICADO`/`NUEVO`/`AUSENTE`.
-<details class="sol"><summary>Solución</summary>
-
-```python
-def audita(man: dict[str, str], ahora: dict[str, str]) -> dict[str, str]:
-    r: dict[str, str] = {}
-    for f, h in man.items():
-        r[f] = "AUSENTE" if f not in ahora else ("OK" if ahora[f] == h else "MODIFICADO")
-    for f in ahora:
-        if f not in man:
-            r[f] = "NUEVO"
-    return r
-```
-</details>
-
-**11 · 🟠 Detectar ficheros duplicados** — `duplicados(archivos: dict[str,str]) -> dict[str, list[str]]`: agrupa nombres que comparten el mismo hash.
-<details class="sol"><summary>Solución</summary>
-
-```python
-from collections import defaultdict
-def duplicados(archivos: dict[str, str]) -> dict[str, list[str]]:
-    por_hash: dict[str, list[str]] = defaultdict(list)
-    for nombre, h in archivos.items():
-        por_hash[h].append(nombre)
-    return {h: n for h, n in por_hash.items() if len(n) > 1}
-```
-</details>
-
-**12 · 🔴 Autenticar un mensaje (HMAC)** — `firma(clave, msg) -> str` y `valida(clave, msg, f) -> bool`. Así se firman webhooks y APIs reales.
-<details class="sol"><summary>Solución</summary>
-
-```python
-import hmac, hashlib
-def firma(clave: str, msg: str) -> str:
-    return hmac.new(clave.encode(), msg.encode(), hashlib.sha256).hexdigest()
-def valida(clave: str, msg: str, f: str) -> bool:
-    return hmac.compare_digest(firma(clave, msg), f)
-```
-</details>
-
-**13 · 🔴 Cadena de hashes (mini-blockchain)** — `cadena(bloques: list[str]) -> list[str]`: cada hash depende del anterior; `cadena_valida(bloques, hashes) -> bool` detecta si algo se alteró.
-<details class="sol"><summary>Solución</summary>
-
-```python
-import hashlib
-def cadena(bloques: list[str]) -> list[str]:
-    hashes, anterior = [], "0" * 64
-    for b in bloques:
-        h = hashlib.sha256((anterior + b).encode()).hexdigest()
-        hashes.append(h)
-        anterior = h
-    return hashes
-
-def cadena_valida(bloques: list[str], hashes: list[str]) -> bool:
-    return cadena(bloques) == hashes
-```
-</details>
-
-**14 · 🔴 Firmar y verificar desde un `.pem`** — como en los scripts de la sección 6: `firma_rsa(privada, doc: bytes) -> bytes` y `verifica_con_pem(pem_publica: bytes, doc: bytes, firma: bytes) -> bool`, donde el verificador **carga la pública de un PEM** (no recibe el objeto). Comprueba que la firma de un impostor se rechaza.
-<details class="sol"><summary>Solución</summary>
-
-```python
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.exceptions import InvalidSignature
-_PSS = padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH)
-
-def firma_rsa(privada, doc: bytes) -> bytes:
-    return privada.sign(doc, _PSS, hashes.SHA256())           # con la PRIVADA
-
-def verifica_con_pem(pem_publica: bytes, doc: bytes, firma: bytes) -> bool:
-    publica = serialization.load_pem_public_key(pem_publica)  # carga la pública del .pem
-    try:
-        publica.verify(firma, doc, _PSS, hashes.SHA256()); return True
-    except InvalidSignature:
-        return False
+a = hashlib.sha256("seguridad".encode()).hexdigest()
+b = hashlib.sha256("Seguridad".encode()).hexdigest()
+print(a == b)
+print(a[:8], "...")
+print(b[:8], "...")
 ```
 
-La firma de un impostor (hecha con otra privada) no supera la verificación contra la pública del `.pem`.
-</details>
+Ejecútalo. ¿Cuántos de los primeros 8 caracteres coinciden? ¿Qué demuestra?
 
-**15 · 🔴 Buzón asimétrico con fichero PEM** — `exportar_publica(publica) -> bytes` (la devuelve en formato PEM) y `cifrar_con_pem(pem: bytes, mensaje: bytes) -> bytes` (carga la pública del PEM y cifra). Comprueba que el mensaje lo descifra la privada correcta, y que **otra** privada lanza `ValueError`.
-<details class="sol"><summary>Solución</summary>
+**2 · 🟢** En `hash_fichero.py` calculaste el hash de un fichero. Abre el fichero y cambia **una sola letra**. Vuelve a calcular el hash. ¿Sigue siendo el mismo? ¿Qué propiedad del hash demuestra esto?
 
-```python
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes, serialization
-_OAEP = padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+**3 · 🟡** El código de `forense.py` guarda un `precinto = sha256_fichero("prueba.log")` antes de analizar el fichero. Luego `forense_manipulada.py` altera el fichero y comprueba `sha256_fichero("prueba.log") == precinto`. ¿Por qué el resultado es `False`? ¿Qué papel juega el hash en una cadena de custodia?
 
-def exportar_publica(publica) -> bytes:
-    return publica.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
+### Cifrado simétrico y asimétrico
 
-def cifrar_con_pem(pem: bytes, mensaje: bytes) -> bytes:
-    publica = serialization.load_pem_public_key(pem)      # recarga la pública del fichero
-    return publica.encrypt(mensaje, _OAEP)
-```
+**4 · 🟡** En `simetrico_fernet.py` viste que Fernet lanza `InvalidToken` si manipulas el token cifrado. ¿Por qué Fernet puede detectar eso, si solo es un cifrado? ¿Qué significa que sea un cifrado "autenticado"?
 
-Solo la privada emparejada con esa pública descifra; cualquier otra lanza `ValueError`. Y `_OAEP` tiene que tener la **misma configuración** al cifrar y al descifrar.
-</details>
+**5 · 🟡** En `cifrar.py` cargaste `luis_publica.pem` para cifrar. En `descifrar.py` cargaste `luis_privada.pem` para descifrar. ¿Por qué cifras con la pública y descifras con la privada, y no al revés?
 
-**16 · 🔴 ¿Cuánto le queda al certificado?** — `dias_restantes(fecha_expiracion: datetime) -> int`, usando `datetime.now(timezone.utc)`.
-<details class="sol"><summary>Solución</summary>
+**6 · 🟠** En `espia.py` Eva tiene la clave pública de Luis y el mensaje cifrado, pero no puede leerlo. Explica en tus palabras por qué la clave pública no le sirve para descifrar.
 
-```python
-from datetime import datetime, timezone
+### Firma digital
 
-def dias_restantes(fecha_expiracion: datetime) -> int:
-    return (fecha_expiracion - datetime.now(timezone.utc)).days
-```
-</details>
+**7 · 🟡** En `firmar.py` Ana firmó con `ana_privada.pem` y en `verificar.py` Luis verificó con `ana_publica.pem`. ¿Qué ocurrió cuando alteraste `contrato.txt` antes de verificar? ¿Por qué falla la verificación aunque tengas la clave pública correcta?
 
-**17 · 🔴 Manifiesto en dos formatos** — `a_texto(man: dict[str,str]) -> str` en formato `sha256sum` (`hash  nombre` por línea) y `de_texto(s: str) -> dict[str,str]` que lo lee de vuelta.
-<details class="sol"><summary>Solución</summary>
+**8 · 🟠** En `impostor.py` alguien firma con su propia clave privada haciéndose pasar por Ana. Luis verifica con `ana_publica.pem`. ¿Por qué la verificación falla? ¿Qué demuestra esto sobre la utilidad de la firma digital?
 
-```python
-def a_texto(man: dict[str, str]) -> str:
-    return "\n".join(f"{h}  {n}" for n, h in man.items())
+### Ejercicios propuestos (sin solución)
 
-def de_texto(s: str) -> dict[str, str]:
-    m: dict[str, str] = {}
-    for ln in s.splitlines():
-        if ln.strip():
-            h, _, n = ln.partition("  ")
-            m[n.strip()] = h.strip().lower()
-    return m
-```
-</details>
+**P1 · 🟢** Dado `texto = "mi mensaje secreto"`, calcula su SHA-256 y guárdalo en `precinto`. Luego cambia una letra del texto y comprueba si el nuevo hash es igual al precinto.
 
-**18 · 🔴 Crear y guardar un par de claves** — `crear_par(nombre: str) -> tuple[str, str]`: genera un par RSA, guarda la privada en `<nombre>_priv.pem` y la pública en `<nombre>_pub.pem`, y devuelve las dos rutas. Comprueba que los ficheros empiezan por `-----BEGIN PRIVATE KEY-----` y `-----BEGIN PUBLIC KEY-----`.
-<details class="sol"><summary>Solución</summary>
+**P2 · 🟡** Dado `estado = "open"` (como devuelve nmap para un puerto abierto), escribe un `if` que imprima `"ABIERTO"` si el estado es `"open"` y `"cerrado"` en otro caso.
 
-```python
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-from pathlib import Path
-
-def crear_par(nombre: str) -> tuple[str, str]:
-    pv = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    ruta_priv, ruta_pub = f"{nombre}_priv.pem", f"{nombre}_pub.pem"
-    Path(ruta_priv).write_bytes(pv.private_bytes(
-        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
-    Path(ruta_pub).write_bytes(pv.public_key().public_bytes(
-        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo))
-    return ruta_priv, ruta_pub
-```
-</details>
-
-**19 · 🔴 Cifrar y descifrar usando ficheros PEM** — `cifrar_a_fichero(ruta_pub, mensaje, ruta_salida)` carga la pública del `.pem` y guarda el cifrado; `descifrar_de_fichero(ruta_priv, ruta_cifrado) -> bytes` carga la privada y devuelve el mensaje. Pruébalo con el par del ejercicio 18.
-<details class="sol"><summary>Solución</summary>
-
-```python
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes, serialization
-from pathlib import Path
-_OAEP = padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-
-def cifrar_a_fichero(ruta_pub: str, mensaje: bytes, ruta_salida: str) -> None:
-    pub = serialization.load_pem_public_key(Path(ruta_pub).read_bytes())
-    Path(ruta_salida).write_bytes(pub.encrypt(mensaje, _OAEP))
-
-def descifrar_de_fichero(ruta_priv: str, ruta_cifrado: str) -> bytes:
-    pv = serialization.load_pem_private_key(Path(ruta_priv).read_bytes(), password=None)
-    return pv.decrypt(Path(ruta_cifrado).read_bytes(), _OAEP)
-```
-</details>
-
-**20 · 🔴 ¿Tengo la clave correcta?** — `puede_descifrar(ruta_priv, ruta_cifrado) -> bool`: devuelve `True` si esa privada abre el fichero cifrado, y `False` (capturando `ValueError`) si no. Comprueba que la privada del destinatario da `True` y la de otra persona da `False`.
-<details class="sol"><summary>Solución</summary>
-
-```python
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes, serialization
-from pathlib import Path
-_OAEP = padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-
-def puede_descifrar(ruta_priv: str, ruta_cifrado: str) -> bool:
-    pv = serialization.load_pem_private_key(Path(ruta_priv).read_bytes(), password=None)
-    try:
-        pv.decrypt(Path(ruta_cifrado).read_bytes(), _OAEP)
-        return True
-    except ValueError:
-        return False
-```
-</details>
-
-**21 · 🔴 Firmar un fichero y verificar desde PEM** — `firmar_fichero(ruta_priv, ruta_doc) -> bytes` y `firma_ok(ruta_pub, ruta_doc, firma) -> bool`. Comprueba que la firma es válida, y que si cambias el documento pasa a ser `False`.
-<details class="sol"><summary>Solución</summary>
-
-```python
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.exceptions import InvalidSignature
-from pathlib import Path
-_PSS = padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH)
-
-def firmar_fichero(ruta_priv: str, ruta_doc: str) -> bytes:
-    pv = serialization.load_pem_private_key(Path(ruta_priv).read_bytes(), password=None)
-    return pv.sign(Path(ruta_doc).read_bytes(), _PSS, hashes.SHA256())
-
-def firma_ok(ruta_pub: str, ruta_doc: str, firma: bytes) -> bool:
-    pub = serialization.load_pem_public_key(Path(ruta_pub).read_bytes())
-    try:
-        pub.verify(firma, Path(ruta_doc).read_bytes(), _PSS, hashes.SHA256())
-        return True
-    except InvalidSignature:
-        return False
-```
-</details>
-
-**22 · 🔴 Precinto forense de un fichero** — `precintar(ruta) -> str` devuelve el hash SHA-256 del fichero, e `intacto(ruta, precinto) -> bool` comprueba si sigue igual (con `hmac.compare_digest`). Comprueba que tras modificar el fichero devuelve `False`.
-<details class="sol"><summary>Solución</summary>
-
-```python
-import hashlib, hmac
-from pathlib import Path
-
-def precintar(ruta: str) -> str:
-    return hashlib.sha256(Path(ruta).read_bytes()).hexdigest()
-
-def intacto(ruta: str, precinto: str) -> bool:
-    return hmac.compare_digest(precintar(ruta), precinto)
-```
-</details>
-
-
----
+**P3 · 🟠** Tienes `nvd = {"nginx/1.18.0": "CVE-2021-23017"}` y `banner = "nginx/1.18.0"`. Escribe el código (sin bucles) que imprima el CVE si el banner está en la NVD, y `"sin vulnerabilidades"` si no.
 
 ## Cómo se evalúa esta unidad (RA1)
 
-La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tipo test** (preguntas de opción múltiple como las del simulacro).
+La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tipo test**.
 
 !!! tip "La nota, sin sorpresas"
     **Nota = (aciertos ÷ nº de preguntas) × 10.** Los fallos no restan. Se aprueba con 5.
 
----
-
 ## Simulacro de examen tipo test
 
-> 26 preguntas de opción múltiple. Cada una trae su propio código o un caso concreto — no necesitas recordar de qué sección era, solo leerlo y razonar.
+> 20 preguntas. Mezclan teoría y fragmentos de los scripts que ejecutaste. Una sola respuesta correcta.
 
-**1.** ¿Qué imprime este código?
-
-```python
-import hashlib
-def h(t): return hashlib.sha256(t.encode()).hexdigest()
-
-print(h("clave123") == h("clave123"))
-print(h("clave123") == h("Clave123"))
-```
-
-A) `True` y `True`
-B) `True` y `False`
-C) `False` y `False`
-D) `False` y `True`
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El hash es determinista (mismo texto exacto → mismo resultado), pero es sensible a mayúsculas: <code>"clave123"</code> y <code>"Clave123"</code> son cadenas distintas, así que sus hashes también lo son.</details>
-
-**2.** ¿Qué imprime este código?
+**1.** ¿Qué imprime este fragmento de `avalancha.py`?
 
 ```python
 import hashlib
-def h(t): return hashlib.sha256(t.encode()).hexdigest()
-
-a, b = h("1234"), h("1235")
-iguales = sum(1 for x, y in zip(a, b) if x == y)
-print(iguales < 20)
+h = lambda t: hashlib.sha256(t.encode()).hexdigest()
+print(h("hola") == h("hola"), h("hola") == h("Hola"))
 ```
 
-A) `True`
-B) `False`
-C) Lanza una excepción, `zip` no funciona con cadenas
-D) Depende de la máquina donde se ejecute
+- A) `False False`
+- B) `True True`
+- C) `True False`
+- D) `False True`
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: A.</b> Es el efecto avalancha: cambiar un solo carácter de la entrada altera la mayoría del hash, así que muy pocos de los 64 caracteres siguen coincidiendo entre los dos hashes.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: C.</b> El hash es determinista (misma entrada exacta → mismo hash), pero sensible a mayúsculas: "hola" y "Hola" son cadenas distintas y producen hashes distintos.</details>
 
-**3.** Tienes estas dos funciones para comparar dos cadenas secretas:
+**2.** El **efecto avalancha** que viste en `avalancha.py` significa que:
 
-```python
-import hmac
+- A) El hash crece con el tamaño del fichero
+- B) Cambiar un solo carácter de la entrada cambia casi todo el hash
+- C) El hash se puede revertir con esfuerzo
+- D) Dos entradas distintas pueden dar el mismo hash
 
-def comparar_lento(a: str, b: str) -> bool:
-    return a == b
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Viste en el lab que "seguridad" y "Seguridad" producen hashes completamente distintos a pesar de diferir solo en una letra.</details>
 
-def comparar_seguro(a: str, b: str) -> bool:
-    return hmac.compare_digest(a, b)
-```
+**3.** En `forense.py` guardaste un `precinto` (el hash del fichero antes de analizarlo). En `forense_manipulada.py` alteraste el fichero. ¿Qué ocurrió al comparar?
 
-¿Cuál de las dos es vulnerable a un ataque de temporización, y por qué?
+- A) El hash siguió siendo el mismo porque el fichero es pequeño
+- B) El hash cambió: la comparación devolvió `False`, detectando la alteración
+- C) Lanzó una excepción
+- D) El hash cambió solo si se alteró más de una línea
 
-A) `comparar_seguro`, porque `hmac` es más lento
-B) `comparar_lento`, porque `==` se detiene en el primer carácter distinto y el tiempo de respuesta varía según cuántos caracteres coincidan
-C) Ninguna, ambas tardan exactamente lo mismo siempre
-D) `comparar_lento`, porque Python no permite comparar cadenas con `==`
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Cualquier cambio en el fichero, por mínimo que sea, produce un hash completamente distinto. El precinto detecta la manipulación.</details>
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>==</code> compara carácter a carácter y se detiene en el primer fallo; ese tiempo variable puede filtrar información a un atacante. <code>compare_digest</code> siempre tarda lo mismo, sin importar dónde esté la diferencia.</details>
+**4.** ¿Para qué sirve el `precinto` en el análisis forense?
 
-**4.** ¿Qué imprime este código?
+- A) Para cifrar la evidencia
+- B) Para demostrar que la evidencia no fue alterada desde que se tomó el hash (cadena de custodia)
+- C) Para comprimir el fichero
+- D) Para firmar digitalmente el informe
 
-```python
-import hashlib
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Si el hash del fichero analizado coincide con el precinto tomado al inicio, nadie lo alteró. Es la base de la cadena de custodia.</details>
 
-def hash_bloques(datos: bytes, n: int = 4) -> str:
-    h = hashlib.sha256()
-    for i in range(0, len(datos), n):
-        h.update(datos[i:i + n])
-    return h.hexdigest()
+**5.** En `simetrico_fernet.py` viste que manipular el token cifrado lanza `InvalidToken`. ¿Por qué?
 
-print(hash_bloques(b"holamundo", 4) == hashlib.sha256(b"holamundo").hexdigest())
-```
+- A) Porque Fernet solo acepta tokens de 256 bytes exactos
+- B) Porque Fernet es cifrado autenticado: verifica la integridad antes de descifrar
+- C) Porque la clave era incorrecta
+- D) Porque Python detecta los bytes modificados
 
-A) `True`
-B) `False`
-C) Lanza `TypeError`
-D) Depende del valor de `n`
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Fernet combina cifrado y autenticación (AEAD). Si alguien modifica el texto cifrado, la verificación falla y no se descifra nada.</details>
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: A.</b> Hashear un dato entero de una vez o alimentarlo por trozos con <code>update()</code> produce exactamente el mismo resultado — es lo que permite hashear ficheros enormes sin cargarlos enteros en memoria.</details>
+**6.** En `cifrar.py` cargaste `luis_publica.pem` para cifrar el mensaje. ¿Por qué la clave pública de Luis y no la tuya?
 
-**5.** ¿Qué imprime este código?
+- A) Porque la tuya no está en formato PEM
+- B) Porque solo la clave privada de Luis puede descifrar lo que se cifra con su pública
+- C) Porque las claves públicas cifran más rápido
+- D) Porque es más seguro usar la clave del destinatario
 
-```python
-from cryptography.fernet import Fernet, InvalidToken
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> En cifrado asimétrico, lo que se cifra con la pública solo se puede descifrar con la privada correspondiente. Es lo que garantiza que solo Luis pueda leer el mensaje.</details>
 
-clave = Fernet.generate_key()
-f = Fernet(clave)
-token = f.encrypt(b"mensaje")
-alterado = token[:-1] + b"X"      # se cambia el último byte
+**7.** En `espia.py`, Eva tiene la clave pública de Luis y el mensaje cifrado. ¿Puede leer el mensaje?
 
-try:
-    f.decrypt(alterado)
-    resultado = "descifrado sin problema"
-except InvalidToken:
-    resultado = "rechazado"
+- A) Sí, con la clave pública con la que se cifró
+- B) No: descifrar exige la clave privada de Luis, que solo él tiene
+- C) Sí, si prueba todas las claves posibles
+- D) Solo si el mensaje es corto
 
-print(resultado)
-```
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La clave pública solo cifra. Descifrar exige la privada, que nunca se comparte. Eva puede tener la pública y el mensaje cifrado, y seguir sin poder leerlo.</details>
 
-A) `descifrado sin problema`, porque Fernet ignora bytes sueltos manipulados
-B) `rechazado`, porque Fernet detecta que el texto cifrado fue alterado
-C) El programa se cuelga esperando una respuesta
-D) Lanza `KeyError`, no `InvalidToken`
+**8.** En `descifrar.py`, al cargar la clave privada usaste `password=None`. ¿Qué significa?
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Fernet es cifrado autenticado: verifica la integridad del texto cifrado antes de descifrar, y si detecta manipulación lanza <code>InvalidToken</code> en vez de devolver datos corruptos.</details>
+- A) Que la clave es pública
+- B) Que el fichero `.pem` no está protegido con contraseña
+- C) Que la clave es incorrecta
+- D) Que se usa cifrado simétrico
 
-**6.** Ana tiene un par de claves (`privada_ana`, `publica_ana`). Quieres enviarle un mensaje que **solo ella** pueda leer:
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Las claves privadas en PEM pueden estar protegidas con contraseña. <code>password=None</code> indica que este fichero no la tiene.</details>
 
-```python
-oaep = padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-mensaje_cifrado = ____.encrypt(b"secreto", oaep)
-```
+**9.** En `firmar.py`, Ana firmó con `PSS` usando su **clave privada**. ¿Qué garantiza esa firma?
 
-¿Qué clave va en el hueco?
+- A) Que el mensaje está cifrado
+- B) Que fue Ana quien firmó y que el documento no fue alterado después
+- C) Que el mensaje llegará íntegro
+- D) Que nadie puede leer el documento
 
-A) `privada_ana`
-B) `publica_ana`
-C) Tu propia clave privada
-D) Cualquiera de las dos, da igual
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La firma digital garantiza autoría (solo Ana tiene su clave privada) e integridad (cualquier cambio en el documento invalida la firma).</details>
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Se cifra con la clave <b>pública</b> del destinatario; solo su clave privada (que nadie más tiene) puede descifrarlo después.</details>
+**10.** En `verificar.py` alteraste `contrato.txt` antes de verificar. ¿Qué resultado obtuvo la verificación?
 
-**7.** ¿Qué imprime este código?
+- A) `True`, porque la clave pública era la correcta
+- B) `False` / `InvalidSignature`, porque el documento ya no coincide con lo que se firmó
+- C) `True`, si el cambio era pequeño
+- D) Lanzó `FileNotFoundError`
 
-```python
-firma = privada.sign(documento, pss, hashes.SHA256())
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La firma se calculó sobre el documento exacto. Cualquier cambio, por mínimo que sea, hace que la verificación falle.</details>
 
-def verifica(doc: bytes) -> bool:
-    try:
-        publica.verify(firma, doc, pss, hashes.SHA256())
-        return True
-    except InvalidSignature:
-        return False
-
-print(verifica(documento))
-print(verifica(documento + b"!"))
-```
-
-A) `True` y `True`
-B) `True` y `False`
-C) `False` y `True`
-D) `False` y `False`
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La firma se calculó sobre <code>documento</code> exacto; verificar ese mismo documento da <code>True</code>, pero cambiar un solo carácter (<code>documento + b"!"</code>) hace que la verificación falle.</details>
-
-**8.** Generas un certificado así:
-
-```python
-certificado = (
-    x509.CertificateBuilder()
-    .subject_name(nombre)
-    .issuer_name(nombre)          # mismo valor que subject_name
-    .public_key(clave.public_key())
-    .sign(clave, hashes.SHA256())
-)
-print(certificado.subject == certificado.issuer)
-```
-
-¿Qué imprime, y qué tipo de certificado es?
-
-A) `False`; es un certificado firmado por una CA
-B) `True`; es un certificado autofirmado
-C) Lanza una excepción, `subject` e `issuer` no se pueden comparar
-D) `True`; es un certificado revocado
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Como <code>issuer_name</code> recibe el mismo <code>nombre</code> que <code>subject_name</code>, el certificado se firma a sí mismo — por definición, un certificado autofirmado.</details>
-
-**9.** ¿Qué imprime este código, sabiendo que `privada` es una clave RSA de 2048 bits?
-
-```python
-contenido = b"informe confidencial de la empresa"
-firma = privada.sign(contenido, pss, hashes.SHA256())
-print(len(firma))
-```
-
-A) `19`, la longitud del texto en bytes
-B) `32`, el tamaño de un hash SHA-256 en bytes
-C) `256`, el tamaño fijo que da una clave RSA de 2048 bits (2048 ÷ 8)
-D) Depende de la longitud de `contenido`
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: C.</b> El tamaño de una firma RSA lo determina el tamaño de la <b>clave</b>, no el del documento firmado — por eso firmar un byte o firmar un fichero de 10 GB da siempre 256 bytes con esta clave.</details>
-
-**10.** Tienes esta función de auditoría:
-
-```python
-def auditar(previo: dict, actual: dict) -> dict:
-    r = {}
-    for n, h in previo.items():
-        if n not in actual:
-            r[n] = "AUSENTE"
-        elif h == actual[n]:
-            r[n] = "OK"
-        else:
-            r[n] = "MODIFICADO"
-    for n in actual:
-        if n not in previo:
-            r[n] = "NUEVO"
-    return r
-
-print(auditar({"a": "x", "b": "y"}, {"a": "x", "c": "z"}))
-```
-
-¿Qué imprime?
-
-A) `{'a': 'OK', 'b': 'AUSENTE', 'c': 'NUEVO'}`
-B) `{'a': 'OK', 'b': 'MODIFICADO'}`
-C) `{'a': 'OK', 'b': 'OK', 'c': 'OK'}`
-D) `{'a': 'OK'}`
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: A.</b> <code>"a"</code> tiene el mismo hash en ambos → <code>OK</code>. <code>"b"</code> estaba en <code>previo</code> pero ya no está en <code>actual</code> → <code>AUSENTE</code>. <code>"c"</code> no estaba en <code>previo</code> → <code>NUEVO</code>.</details>
+**11.** En `impostor.py`, alguien firma con su propia clave privada y Luis verifica con `ana_publica.pem`. ¿Qué ocurre?
 
-**11.** Tienes esta cadena de hashes (cada uno depende del anterior):
-
-```python
-def cadena(bloques: list[str]) -> list[str]:
-    hashes_, anterior = [], "0" * 64
-    for b in bloques:
-        h = hashlib.sha256((anterior + b).encode()).hexdigest()
-        hashes_.append(h)
-        anterior = h
-    return hashes_
+- A) La verificación da `True` porque la firma es válida
+- B) La verificación falla: la firma no corresponde a la clave pública de Ana
+- C) Se lanza una excepción de fichero no encontrado
+- D) Da `True` si el documento es idéntico
 
-c1 = cadena(["a", "b", "c"])
-c2 = cadena(["a", "X", "c"])     # se altera el bloque del medio
-print(c1[0] == c2[0], c1[1] == c2[1], c1[2] == c2[2])
-```
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Solo la clave privada de Ana produce firmas que se verifican con su clave pública. Una firma hecha con otra clave privada no pasa la verificación.</details>
 
-¿Qué imprime?
+**12.** En `generar_claves.py` creaste `luis_privada.pem` y `luis_publica.pem`. ¿Cuál de los dos puede Luis enviar a Ana sin riesgo?
 
-A) `True True True`
-B) `False False False`
-C) `True False False`
-D) `True True False`
+- A) `luis_privada.pem`
+- B) `luis_publica.pem`
+- C) Ninguno, ambos son secretos
+- D) Los dos, son equivalentes
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: C.</b> El primer bloque no depende del alterado, así que su hash no cambia. Pero a partir de ahí, cada hash incorpora el anterior — alterar el bloque 2 cambia su hash y, en cascada, también el del bloque 3.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La clave pública está diseñada para compartirse. La privada nunca se comparte con nadie.</details>
 
-**12.** ¿Qué imprime este código?
+**13.** ¿Qué significa la cabecera `-----BEGIN PRIVATE KEY-----` que viste en los ficheros `.pem`?
 
-```python
-from dataclasses import dataclass
+- A) Que el fichero contiene una clave pública
+- B) Que el fichero contiene una clave privada en formato PEM
+- C) Que el fichero está cifrado
+- D) Que es un certificado
 
-@dataclass
-class Copia:
-    soporte: str
-    ubicacion: str
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Las cabeceras PEM identifican el tipo de contenido. <code>BEGIN PRIVATE KEY</code> indica clave privada; <code>BEGIN PUBLIC KEY</code> indica clave pública.</details>
 
-def cumple_321(copias: list[Copia]) -> tuple[bool, list[str]]:
-    fallos = []
-    if len(copias) < 3:
-        fallos.append("num")
-    if len({c.soporte for c in copias}) < 2:
-        fallos.append("soporte")
-    if not any(c.ubicacion == "externo" for c in copias):
-        fallos.append("externo")
-    return (not fallos, fallos)
+**14.** En `certificado_x509.py`, el certificado generado tenía `subject == issuer`. ¿Qué tipo de certificado es?
 
-copias = [Copia("disco_local", "sitio"), Copia("disco_local", "sitio"), Copia("nas", "externo")]
-print(cumple_321(copias))
-```
+- A) Emitido por una CA reconocida
+- B) Autofirmado
+- C) Caducado
+- D) Revocado
 
-A) `(True, [])`
-B) `(False, ['num'])`
-C) `(False, ['soporte'])`
-D) `(False, ['num', 'soporte'])`
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Cuando el sujeto y el emisor son el mismo, el certificado se firma a sí mismo: es autofirmado. No hay ninguna CA que lo avale.</details>
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: A.</b> Hay 3 copias (cumple), dos soportes distintos (<code>disco_local</code> y <code>nas</code>, cumple) y una está en <code>"externo"</code> (cumple) — las tres condiciones se satisfacen.</details>
+**15.** ¿Qué diferencia hay entre **OAEP** (usado en `cifrar.py`) y **PSS** (usado en `firmar.py`)?
 
-**13.** ¿Qué imprime este código?
+- A) Son intercambiables
+- B) OAEP es el relleno para cifrar con RSA; PSS es el relleno para firmar con RSA
+- C) OAEP firma y PSS cifra
+- D) Solo se diferencian en el tamaño
 
-```python
-from enum import Enum
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Son dos esquemas de relleno distintos para RSA, cada uno para su operación: OAEP para cifrado, PSS para firma. No son intercambiables.</details>
 
-class Pilar(Enum):
-    CONFIDENCIALIDAD = "C"
-    INTEGRIDAD = "I"
-    DISPONIBILIDAD = "D"
+**16.** ¿Qué ocurriría si usaras **MD5** en vez de SHA-256 para el precinto forense?
 
-def describe(p: Pilar) -> str:
-    return f"Rompe: {p.name}"
+- A) Nada, MD5 es igual de seguro
+- B) Sería peligroso: MD5 está roto y alguien podría manipular el fichero sin que cambie el hash
+- C) El programa sería más rápido y seguro
+- D) El hash sería más largo
 
-incidente = Pilar.DISPONIBILIDAD
-print(describe(incidente))
-```
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> MD5 tiene colisiones conocidas: se pueden crear dos ficheros distintos con el mismo MD5. Un precinto forense basado en MD5 no garantiza integridad.</details>
 
-A) `Rompe: D`
-B) `Rompe: DISPONIBILIDAD`
-C) `Rompe: Pilar.DISPONIBILIDAD`
-D) Lanza `AttributeError`, `Enum` no tiene atributo `name`
+**17.** La **confidencialidad** (la C del triángulo CID) se rompe cuando:
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>.name</code> devuelve el nombre del miembro del <code>Enum</code> (<code>"DISPONIBILIDAD"</code>), no su valor (<code>.value</code> daría <code>"D"</code>).</details>
+- A) Un fichero se modifica sin permiso
+- B) Alguien no autorizado accede a la información
+- C) El servicio deja de estar disponible
+- D) Una firma no es válida
 
-**14.** ¿Qué imprime este código?
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Confidencialidad = que solo acceda quien está autorizado. Se rompe cuando alguien no autorizado lee o copia la información.</details>
 
-```python
-def riesgo(probabilidad: float, impacto: float) -> float:
-    return round(probabilidad * impacto, 2)
+**18.** ¿Para qué sirve `hmac.compare_digest(a, b)` en vez de `a == b` para comparar hashes?
 
-print(riesgo(probabilidad=0.9, impacto=6))
-```
+- A) Porque `==` no funciona con cadenas hexadecimales largas
+- B) Porque `compare_digest` siempre tarda lo mismo, evitando ataques de temporización
+- C) Porque `==` lanza una excepción con hashes
+- D) No hay diferencia práctica
 
-A) `5.4`
-B) `6.9`
-C) `0.9`
-D) `54.0`
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>==</code> se detiene en el primer carácter diferente y tarda menos cuantos más caracteres coinciden al principio, lo que filtra información. <code>compare_digest</code> siempre tarda lo mismo.</details>
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: A.</b> <code>0.9 × 6 = 5.4</code>, redondeado a 2 decimales sigue siendo <code>5.4</code>.</details>
+**19.** Una firma RSA con clave de 2048 bits, ¿de qué tamaño es?
 
-**15.** Un sistema guarda un **manifiesto** `{fichero: hash}` y luego lo compara con el estado actual. Con esta función `auditar`:
+- A) Depende del tamaño del documento firmado
+- B) 256 bytes fijos, independientemente del documento
+- C) 2048 bytes
+- D) 32 bytes (como SHA-256)
 
-```python
-manifiesto = {"app.conf": "hash_de_puerto=8080", "app.bin": "hash_binario"}
-actual =     {"app.conf": "hash_de_puerto=9090", "app.bin": "hash_binario", "nuevo.txt": "hash_x"}
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El tamaño de la firma RSA lo determina el tamaño de la clave (2048 bits = 256 bytes), no el del documento. Viste esto en el lab al medir <code>len(firma)</code>.</details>
 
-print(auditar(manifiesto, actual))
-```
+**20.** Para verificar la firma de Ana, Luis necesita:
 
-(`auditar` es la misma función de la pregunta 10.) ¿Qué imprime?
+- A) El documento, la firma y la clave **privada** de Ana
+- B) El documento, la firma y la clave **pública** de Ana
+- C) Solo la firma
+- D) El documento y su propia clave privada
 
-A) `{'app.conf': 'OK', 'app.bin': 'OK', 'nuevo.txt': 'NUEVO'}`
-B) `{'app.conf': 'MODIFICADO', 'app.bin': 'OK', 'nuevo.txt': 'NUEVO'}`
-C) `{'app.conf': 'AUSENTE', 'app.bin': 'OK'}`
-D) `{'app.conf': 'MODIFICADO', 'app.bin': 'MODIFICADO', 'nuevo.txt': 'NUEVO'}`
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>app.conf</code> cambió de valor (hash distinto) → <code>MODIFICADO</code>. <code>app.bin</code> sigue igual → <code>OK</code>. <code>nuevo.txt</code> no estaba en el manifiesto original → <code>NUEVO</code>. Es el mecanismo básico para detectar manipulaciones en un conjunto de ficheros.</details>
-
-**16.** ¿Qué ocurre al ejecutar este código?
-
-```python
-import argparse
-
-ap = argparse.ArgumentParser()
-ap.add_argument("accion", choices=["generar", "auditar"])
-ap.add_argument("--algoritmo", default="sha256", choices=["sha256", "sha3_256", "blake2b"])
-
-args = ap.parse_args(["generar", "--algoritmo", "md5"])
-print(args.algoritmo)
-```
-
-A) Imprime `"md5"` sin problema
-B) `argparse` rechaza la ejecución, porque `"md5"` no está entre los `choices` permitidos
-C) Imprime `"sha256"`, ignorando el valor inválido
-D) Lanza `TypeError` en tiempo de ejecución
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Al declarar <code>choices=[...]</code>, <code>argparse</code> valida el valor <b>antes</b> de que tu código lo use, y termina el programa con un mensaje de error si no está en la lista — así un programa de integridad nunca llega a usar un algoritmo roto como MD5.</details>
-
-**17.** En RSA con la librería `cryptography`, usas dos tipos de "relleno": **OAEP** y **PSS**. ¿Para qué sirve cada uno?
-
-A) OAEP para firmar y PSS para cifrar
-B) OAEP para cifrar y PSS para firmar
-C) Los dos sirven para lo mismo, son intercambiables
-D) OAEP es para RSA y PSS para AES
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <b>OAEP</b> se usa en <code>encrypt</code>/<code>decrypt</code> (ocultar un mensaje); <b>PSS</b> en <code>sign</code>/<code>verify</code> (demostrar autoría). No son intercambiables: cada operación necesita el suyo.</details>
-
-**18.** Eva intercepta un mensaje que Ana ha cifrado con la clave **pública de Luis**. Eva también tiene esa clave pública (es pública). ¿Puede leer el mensaje?
-
-A) Sí, porque tiene la clave pública con la que se cifró
-B) No: la clave pública solo sirve para cifrar; descifrar requiere la **privada de Luis**, que solo Luis tiene
-C) Sí, si usa su propia clave privada
-D) Solo si el mensaje mide menos de 256 bytes
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Es la base del cifrado asimétrico: lo que se cifra con una pública **solo** lo abre la privada emparejada. Por eso repartir la clave pública no compromete la seguridad.</details>
-
-**19.** Ana cifra con `OAEP(algorithm=SHA256, label=None)`. Luis, al descifrar, crea su propio objeto OAEP. ¿Qué tiene que cumplir para que funcione?
-
-A) Tiene que ser literalmente el mismo objeto Python que usó Ana
-B) Tiene que tener la misma configuración (mismo hash y mismo `label`); el objeto puede ser otro
-C) Da igual la configuración, RSA lo resuelve solo
-D) Luis debe usar PSS en lugar de OAEP para descifrar
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> No hace falta compartir el objeto, pero sí la configuración: si Luis descifra con un OAEP de distinto hash (p. ej. SHA1) o distinto <code>label</code>, obtiene <code>ValueError</code>. Por eso conviene definir el OAEP una vez como constante y reutilizarlo.</details>
-
-**20.** Ana firma `contrato.txt` en su ordenador. Luis quiere verificar la firma **en el suyo**. ¿Qué ficheros necesita Luis que le envíe Ana?
-
-A) El contrato, la firma y la clave **privada** de Ana
-B) El contrato, la firma y la clave **pública** de Ana (su `.pem`)
-C) Solo la firma
-D) El contrato y la clave privada de Luis
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Para verificar hace falta el documento, la firma y la clave <b>pública</b> del firmante. La privada de Ana no se comparte jamás: si Luis la tuviera, podría firmar haciéndose pasar por ella.</details>
-
-**21.** ¿Qué cabecera tiene un fichero `.pem` que contiene una clave **privada**?
-
-A) `-----BEGIN PUBLIC KEY-----`
-B) `-----BEGIN PRIVATE KEY-----`
-C) `-----BEGIN CERTIFICATE-----`
-D) `-----BEGIN RSA-----`
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La pública empieza por <code>BEGIN PUBLIC KEY</code> y la privada por <code>BEGIN PRIVATE KEY</code>. Nunca confundas los ficheros: la privada no se comparte.</details>
-
-**22.** Luis genera su par de claves y guarda `luis_privada.pem` y `luis_publica.pem`. ¿Cuál de los dos ficheros puede enviar a Ana para que le escriba mensajes cifrados?
-
-A) La privada
-B) La pública
-C) Los dos
-D) Ninguno, tiene que darle la contraseña
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Ana cifra con la <b>pública</b> de Luis. La privada se queda siempre en el ordenador de Luis; es la única que descifra.</details>
-
-**23.** ¿Qué imprime este código?
-
-```python
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes, serialization
-from pathlib import Path
-
-OAEP = padding.OAEP(mgf=padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-publica = serialization.load_pem_public_key(Path("luis_publica.pem").read_bytes())
-print(hasattr(publica, "decrypt"))
-```
-
-A) `True`
-B) `False`
-C) Lanza una excepción al cargar el `.pem`
-D) `None`
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Una clave pública solo sabe cifrar y verificar firmas: ni siquiera tiene método <code>decrypt</code>. Por eso tener la pública no sirve para leer mensajes ajenos.</details>
-
-**24.** Al cargar una clave privada desde un `.pem` sin contraseña, ¿qué argumento hay que pasar?
-
-A) `serialization.load_pem_private_key(datos)`
-B) `serialization.load_pem_private_key(datos, password=None)`
-C) `serialization.load_pem_private_key(datos, "")`
-D) No se puede cargar sin contraseña
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La función exige el parámetro <code>password</code>; si la clave no está protegida con contraseña, se pasa <code>password=None</code>.</details>
-
-**25.** Ana firma `contrato.txt`. Luis verifica y da `True`. Entonces alguien edita una coma de `contrato.txt`. Si Luis vuelve a verificar **sin** firmar de nuevo, ¿qué obtiene?
-
-A) `True`, una coma no cuenta
-B) `False`, cualquier cambio en el documento invalida la firma
-C) Lanza una excepción
-D) `True`, porque la firma ya se guardó
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La firma se calcula sobre el hash del documento; cualquier cambio, por mínimo que sea, hace que el hash no coincida y la verificación falle.</details>
-
-**26.** Un impostor firma `contrato.txt` con **su propia** clave privada y se lo manda a Luis. Luis verifica con la clave **pública de Ana**. ¿Qué pasa?
-
-A) La firma se acepta, el documento no cambió
-B) La firma se rechaza: no se hizo con la privada de Ana
-C) Luis no puede verificar sin la clave del impostor
-D) Se acepta si el texto es idéntico al original
-
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Una firma solo supera la verificación con la clave pública que corresponde a la privada que firmó. Como no es la de Ana, se rechaza — es lo que impide suplantar a alguien.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Para verificar hacen falta los tres elementos: el documento original, la firma y la clave pública del firmante. Lo viste en <code>verificar.py</code>.</details>

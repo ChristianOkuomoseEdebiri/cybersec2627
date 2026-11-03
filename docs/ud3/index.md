@@ -414,275 +414,233 @@ docker compose down
 | `pruebas.py` falla al conectar | El laboratorio no está levantado | `docker compose up --build -d` primero |
 ### 🔍 Comprueba tú mismo
 
-Has montado el laboratorio siguiendo los pasos. Ahora toca **entenderlo de verdad** experimentando y respondiendo. Intenta contestar antes de abrir cada solución.
+Estas preguntas y experimentos nacen directamente del laboratorio. Algunas te piden que **pruebes algo** con el laboratorio levantado; otras que **pienses** sobre lo que viste.
 
-**Experimento 1 · El aislamiento.** Con el laboratorio levantado, intenta llamar a la API saltándote la pasarela, directamente por su puerto interno:
+### Sobre el compose y el aislamiento
 
+**A1.** Con el laboratorio levantado, ejecuta desde tu terminal:
 ```bash
 curl http://localhost:8000/salud
 ```
+¿Qué ocurre? Ahora prueba:
+```bash
+curl -k https://localhost:8443/salud
+```
+¿Qué diferencia hay? Explica por qué la primera no funciona y la segunda sí.
 
-- **P1.** ¿Qué ocurre? ¿Por qué, si la API escucha en el 8000, no puedes llegar a ella desde tu máquina?
+**A2.** Mira el `compose.yaml`. La API no tiene `ports:` pero Nginx sí. ¿Qué pasaría si añadieras `ports: ["8000:8000"]` a la API? ¿Sería eso un problema de seguridad? ¿Por qué?
 
-<details class="sol"><summary>Respuesta</summary>Da <code>Connection refused</code>. La API <b>no publica ningún puerto</b> hacia el host (no tiene <code>ports</code> en el compose): solo es alcanzable desde dentro de la red <code>interna</code>, donde también está Nginx. Es el aislamiento de redes funcionando: desde Internet nunca se llega directo a la red interna.</details>
+**A3.** La red `interna` tiene `internal: true`. ¿Qué significa eso? ¿Qué pasaría si la API intentara hacer una petición a internet desde dentro del contenedor?
 
-**Experimento 2 · Los códigos HTTP.** Lanza estas tres peticiones y anota el código que devuelve cada una:
+### Sobre los endpoints y los códigos HTTP
 
+**A4.** Con el laboratorio levantado, ejecuta estos tres comandos y anota el código HTTP que devuelve cada uno:
 ```bash
 curl -k -o /dev/null -s -w "%{http_code}\n" https://localhost:8443/empleados
 curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
 curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/99
 ```
+¿Qué significa cada código? ¿Cuál corresponde a autenticación fallida, cuál a éxito y cuál a recurso inexistente?
 
-- **P2.** ¿Qué código da cada una y qué significa?
+**A5.** En `app.py`, el endpoint `/salud` no comprueba el token pero `/empleados` sí. ¿Por qué tiene sentido que el endpoint de salud sea público y el de datos sea privado?
 
-<details class="sol"><summary>Respuesta</summary>La primera da <b>401</b> (no autorizado: falta el token). La segunda, <b>200</b> (con token válido, acceso correcto). La tercera, <b>404</b> (el empleado 99 no existe). El 401 es la autenticación protegiendo los datos; el 404 es un recurso inexistente.</details>
+### Sobre HTTPS y el certificado
 
-**Experimento 3 · Forzar HTTPS.** Entra por HTTP (puerto 80) en vez de HTTPS:
+**A6.** Ejecuta `curl https://localhost:8443/salud` **sin** la opción `-k`. ¿Qué error da? ¿Por qué el certificado de laboratorio provoca ese error y uno de una CA reconocida no lo haría?
 
-```bash
-curl -i http://localhost:8080/salud
+**A7.** El `nginx.conf` tiene esta línea en el servidor que escucha en el puerto 80:
+```nginx
+return 301 https://$host$request_uri;
 ```
+Prueba `curl -i http://localhost:8080/salud`. ¿Qué código HTTP ves en la primera línea de la respuesta? ¿Qué hace Nginx con tu petición?
 
-- **P3.** ¿Qué código HTTP devuelve y qué hace Nginx con tu petición?
+## Cómo se evalúa esta unidad (RA3)
 
-<details class="sol"><summary>Respuesta</summary>Devuelve <b>301</b> (redirección permanente): Nginx está configurado para redirigir todo el tráfico HTTP a HTTPS. Así se fuerza que la comunicación siempre vaya cifrada.</details>
-
-**Experimento 4 · El certificado.** Repite una petición HTTPS **sin** la opción `-k`:
-
-```bash
-curl https://localhost:8443/salud
-```
-
-- **P4.** ¿Qué error da `curl`? ¿Por qué, y por qué en el laboratorio usamos `-k`?
-
-<details class="sol"><summary>Respuesta</summary>Da un error de certificado no confiable. El certificado es <b>autofirmado</b>: cifra igual, pero ninguna Autoridad de Certificación (CA) lo avala, así que <code>curl</code> desconfía por defecto. Con <code>-k</code> le decimos que lo acepte (solo válido en laboratorio; en producción se usa un certificado emitido por una CA).</details>
-
-**Experimento 5 · La pasarela desde dentro.** Comprueba que Nginx **sí** alcanza la API por su nombre de servicio:
-
-```bash
-docker compose exec nginx wget -qO- http://api:8000/salud
-```
-
-- **P5.** ¿Funciona? ¿Por qué Nginx puede llamar a `api:8000` y tú no?
-
-<details class="sol"><summary>Respuesta</summary>Sí, devuelve <code>{"estado":"ok"}</code>. Nginx comparte la red <code>interna</code> con la API, y Docker resuelve el nombre <code>api</code> dentro de esa red. Tú, desde el host, estás fuera de esa red, así que ese nombre no existe para ti. Es exactamente lo que hace segura la arquitectura: la pasarela es el único puente.</details>
-
-**Para pensar (sin comando).**
-
-- **P6.** Si levantaras una VPN hacia la red `interna` y te conectaras a ella, ¿podrías entonces llamar a `http://api:8000` directamente? ¿Por qué?
-
-<details class="sol"><summary>Respuesta</summary>Sí. La VPN te metería <i>dentro</i> de la red interna mediante un túnel cifrado: para la red, serías un miembro más, así que alcanzarías la API directamente. Esa es justo la función de una VPN para el teletrabajo.</details>
-
-!!! tip "➡️ Todo esto cae en el test"
-    Cada pregunta de arriba corresponde a una del simulacro: el aislamiento (P1, P5), los códigos HTTP 401/404/301 (P2, P3), el certificado autofirmado y el `-k` (P4), y la VPN (P6). Si has hecho los experimentos y entiendes las respuestas, el test de esta unidad lo tienes dominado.
-
-## Parte 3 · Resumen y evaluación
-
-### Resumen para el examen
-
-| Tema | Idea clave |
-|---|---|
-| DMZ | Zona intermedia (recepción); Internet nunca llega directo a la LAN |
-| Cortafuegos | Filtra el tráfico según reglas |
-| Segmentación | Dividir la red en zonas aisladas (las dos redes Docker) |
-| HTTP / HTTPS | HTTPS = HTTP + TLS (cifrado + identidad por certificado) |
-| SSH | Terminal remota cifrada; sustituye a Telnet |
-| VPN | Túnel cifrado sobre Internet; túnel + claves + rutas |
-| Pasarela (gateway) | Punto único de entrada donde se concentran los controles (Nginx) |
-| AAA | Autenticación (¿quién?) · Autorización (¿qué puede?) · Auditoría (¿qué hizo?) |
-| RADIUS | Autenticación centralizada: una sola fuente de identidades |
-| Códigos HTTP | 200 OK · 301 redirección · 401 no autorizado · 404 no encontrado |
-
-### Cómo se evalúa esta unidad
-
-La UT3 se evalúa con un **examen tipo test** de opción múltiple, una sola respuesta correcta.
+La UT3 se evalúa con un **examen tipo test**.
 
 !!! tip "La nota, sin sorpresas"
     **Nota = (aciertos ÷ nº de preguntas) × 10.** Los fallos no restan. Se aprueba con 5.
 
-El laboratorio no puntúa directamente, pero montarlo es la mejor preparación: casi todas las preguntas salen de lo que has visto construyéndolo.
-
 ## Simulacro de examen tipo test
 
-> 20 preguntas de opción múltiple sobre la unidad. Una sola respuesta correcta. Hazlo sin mirar y corrige al final.
+> 20 preguntas. Mezclan teoría y lo que viste y probaste en el laboratorio. Una sola respuesta correcta.
 
-**1.** ¿Qué es una **DMZ** en seguridad perimetral?
+**1.** En el laboratorio, intentaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*. ¿Por qué?
 
-A) La red más interna, donde está la base de datos
-B) Una zona intermedia entre Internet y la red interna, donde se colocan los servicios públicos
-C) Un tipo de cortafuegos
-D) Una VPN
+- A) La API tiene un error
+- B) La API no publica ningún puerto hacia el anfitrión; solo Nginx puede llegar a ella desde la red interna
+- C) Falta el certificado
+- D) El token es incorrecto
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La DMZ es la "recepción": aloja lo que debe ser accesible desde fuera, sin dar acceso directo a la red interna.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La API no tiene <code>ports:</code> en el compose, así que no existe ningún puente entre la red Docker y tu máquina. Es el aislamiento funcionando correctamente.</details>
 
-**2.** La regla de oro de la seguridad perimetral es:
+**2.** Ejecutaste `curl -k https://localhost:8443/empleados` sin token y obtuviste código **401**. ¿Qué significa?
 
-A) Desde Internet nunca se llega directamente a la red interna
-B) Todo el tráfico debe ir por HTTP
-C) La base de datos debe estar en la DMZ
-D) No usar cortafuegos
+- A) El recurso no existe
+- B) La petición no está autenticada: falta o es incorrecto el token
+- C) El servidor no responde
+- D) La conexión fue rechazada
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: A.</b> Entre Internet y lo valioso siempre hay al menos una barrera (la DMZ y la pasarela).</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 401 significa "no autorizado": la API exige la cabecera <code>X-Token</code> y no se envió.</details>
 
-**3.** ¿Qué relación hay entre **HTTPS** y **TLS**?
+**3.** Cuando añadiste `-H "X-Token: secreto-de-laboratorio"`, el servidor respondió **200**. ¿Qué representa ese código?
 
-A) Son lo mismo
-B) HTTPS es HTTP sobre TLS: TLS aporta el cifrado y la identidad
-C) TLS es una versión antigua de HTTPS
-D) No tienen relación
+- A) Error del servidor
+- B) Petición correcta, recurso devuelto
+- C) Redirección a otra URL
+- D) Recurso no encontrado
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTPS = HTTP + TLS. TLS cifra la comunicación y, con el certificado, verifica la identidad del servidor.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 200 OK es la respuesta estándar de éxito: la petición fue correcta y el servidor devuelve lo que se pidió.</details>
 
-**4.** ¿Para qué sirve **SSH**?
+**4.** Pediste `/empleados/99` con token válido y obtuviste **404**. ¿Qué indica?
 
-A) Para navegar por webs cifradas
-B) Para abrir una terminal remota cifrada en un servidor
-C) Para almacenar contraseñas
-D) Para filtrar tráfico de red
+- A) El token es incorrecto
+- B) El empleado con id 99 no existe en la base de datos
+- C) El servidor no está disponible
+- D) El certificado ha caducado
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> SSH da acceso de administración remota cifrado; sustituyó a Telnet, que iba en claro.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 404 "Not Found": la autenticación fue correcta pero el recurso solicitado no existe.</details>
 
-**5.** ¿Qué define mejor una **VPN**?
+**5.** En `nginx.conf`, la directiva `return 301 https://$host$request_uri;` en el servidor del puerto 80 sirve para:
 
-A) Un antivirus de red
-B) Un túnel cifrado que conecta tu equipo con la red de la empresa a través de Internet
-C) Un servidor web
-D) Un tipo de certificado
+- A) Bloquear todo el tráfico HTTP
+- B) Redirigir permanentemente el tráfico HTTP a HTTPS, forzando cifrado
+- C) Devolver un error al cliente
+- D) Reiniciar el servidor
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La VPN crea un túnel cifrado: para la red de la empresa, es como si estuvieras dentro.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El código 301 es una redirección permanente. Nginx recibe la petición HTTP y le dice al cliente que vuelva usando HTTPS.</details>
 
-**6.** Los tres elementos característicos de una VPN son:
+**6.** Ejecutaste `curl https://localhost:8443/salud` sin `-k` y dio error de certificado. ¿Por qué?
 
-A) Usuario, contraseña y correo
-B) Túnel, claves y rutas
-C) HTTP, HTTPS y FTP
-D) CPU, memoria y disco
+- A) El servidor no tiene certificado
+- B) El certificado es autofirmado: ninguna CA reconocida lo avala, así que el cliente desconfía
+- C) El puerto 8443 está cerrado
+- D) El token es incorrecto
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El túnel (canal cifrado), las claves (cifrado/autenticación) y las rutas (qué tráfico va por el túnel).</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un certificado autofirmado cifra igual que uno de una CA, pero como nadie externo lo ha verificado, el cliente lo rechaza por defecto. La opción <code>-k</code> le dice que lo acepte igualmente (solo para laboratorio).</details>
 
-**7.** Una **pasarela** (gateway) en el acceso remoto es:
+**7.** ¿Qué diferencia hay entre un certificado autofirmado (como el del lab) y uno emitido por una CA?
 
-A) Un punto único de entrada donde se concentran los controles de seguridad
-B) Una copia de seguridad
-C) Un antivirus
-D) Un disco de red
+- A) El autofirmado cifra más
+- B) El de una CA está avalado por una entidad de confianza; el autofirmado no
+- C) No hay diferencia técnica
+- D) El autofirmado caduca antes
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: A.</b> Concentra autenticación, cifrado y registro en un solo sitio. En el laboratorio, es Nginx.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La diferencia es de confianza, no de cifrado. Una CA verifica la identidad del servidor antes de emitir el certificado; el autofirmado lo firma uno mismo.</details>
 
-**8.** En las **AAA**, la **autorización** responde a:
+**8.** En el `compose.yaml` del lab, la red `interna` tiene `internal: true`. ¿Qué implica para la API?
 
-A) ¿Quién eres?
-B) ¿Qué puedes hacer?
-C) ¿Qué hiciste y cuándo?
-D) ¿Desde dónde te conectas?
+- A) Que va más rápida
+- B) Que no tiene salida a internet; está aislada
+- C) Que solo acepta HTTPS
+- D) Que es visible desde fuera del contenedor
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Autenticación = quién eres; autorización = qué puedes hacer; auditoría = qué hiciste.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>internal: true</code> crea una red sin enrutamiento hacia el exterior. La API vive ahí y no puede ni ser alcanzada ni llegar a internet por su cuenta.</details>
 
-**9.** ¿Qué problema resuelve **RADIUS**?
+**9.** En el `compose.yaml`, Nginx está en dos redes (`dmz` e `interna`) pero la API solo en `interna`. ¿Por qué?
 
-A) Cifrar el disco
-B) Centralizar la autenticación en una sola fuente de identidades
-C) Acelerar la red
-D) Detectar virus
+- A) Es un error de configuración
+- B) Nginx necesita estar en las dos para hacer de puente entre el exterior y la API
+- C) Para que la API vaya más rápida
+- D) Para ahorrar memoria
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Evita tener las credenciales repartidas por cada servicio: altas, bajas y cambios en un único sitio.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Nginx es la pasarela: recibe tráfico del exterior (red dmz) y lo reenvía a la API (red interna). La API no necesita estar en la dmz porque nadie debe llegar a ella directamente.</details>
 
-**10.** **Segmentar** una red consiste en:
+**10.** `proxy_pass http://api:8000;` en `nginx.conf` funciona porque:
 
-A) Hacer copias de seguridad
-B) Dividirla en zonas aisladas para que un problema no se propague
-C) Aumentar su velocidad
-D) Cifrar los ficheros
+- A) `api` es una IP pública fija
+- B) Docker resuelve el nombre `api` dentro de la red interna como la dirección del contenedor
+- C) El puerto 8000 está publicado hacia el anfitrión
+- D) Nginx adivina la dirección del contenedor
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La segmentación limita el alcance de un incidente: cada zona está aislada de las demás.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> En una red Docker, los contenedores se pueden localizar por su nombre de servicio. Nginx usa ese nombre internamente; desde fuera de Docker, ese nombre no existe.</details>
 
-**11.** En el laboratorio, la API FastAPI **no tiene `ports`** en el compose. ¿Qué consigue eso?
+**11.** ¿Qué es una **DMZ** en seguridad perimetral?
 
-A) Que vaya más rápida
-B) Que el host no pueda llamarla directamente; solo Nginx, desde la red interna
-C) Que no necesite certificado
-D) Que se apague sola
+- A) La red más interna, donde está la base de datos
+- B) Una zona intermedia entre internet y la red interna, donde van los servicios públicos
+- C) Un tipo de firewall
+- D) Una VPN
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Sin puerto publicado, la API es inalcanzable desde fuera: solo la pasarela, que comparte la red interna, llega a ella.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La DMZ es la "recepción": aloja lo que debe ser accesible desde fuera sin dar acceso directo a lo valioso de dentro. En el lab, Nginx vive ahí.</details>
 
-**12.** `curl -k https://localhost:8443/empleados` devuelve **401**. ¿Qué significa?
+**12.** En las **AAA**, la **autenticación** del laboratorio se implementa con:
 
-A) El servidor no existe
-B) Falta la autenticación (no se envió un token válido)
-C) El recurso no existe
-D) Todo correcto
+- A) El certificado SSL
+- B) La cabecera `X-Token` que la API comprueba en cada petición
+- C) El puerto 8443
+- D) El fichero `nginx.conf`
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> 401 = no autorizado: la API exige la cabecera <code>X-Token</code> y no se envió o es incorrecta.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La autenticación responde a "¿quién eres?". En el lab, la API verifica el token antes de devolver datos: si no está o es incorrecto, devuelve 401.</details>
 
-**13.** En la configuración de Nginx, ¿qué hace `return 301 https://$host$request_uri;` en el servidor que escucha en el puerto 80?
+**13.** ¿Qué hace `pruebas.py`? ¿Por qué llama siempre a `https://localhost:8443` y nunca a `http://localhost:8000`?
 
-A) Bloquea el acceso
-B) Redirige el tráfico HTTP a HTTPS
-C) Devuelve un error
-D) Cifra la contraseña
+- A) Por casualidad; cualquiera de las dos funcionaría
+- B) Prueba el sistema como lo haría un cliente real: pasando por la pasarela, no directamente a la API
+- C) Porque el puerto 8000 da error siempre
+- D) Para evitar el certificado
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Fuerza el uso de HTTPS: quien entra por HTTP es redirigido (301) a la versión segura.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Una prueba realista simula cómo accede un usuario de verdad: a través de la pasarela HTTPS. Saltar a la API directa no sería un test válido porque en producción eso no es posible.</details>
 
-**14.** `proxy_pass http://api:8000;` funciona porque:
+**14.** ¿Qué diferencia hay entre **HTTP** y **HTTPS**?
 
-A) `api` es una IP pública
-B) `api` es el nombre del servicio, que se resuelve dentro de la red Docker
-C) El host publica el puerto 8000
-D) Nginx adivina la dirección
+- A) HTTPS es más lento pero funciona igual
+- B) HTTPS cifra la comunicación con TLS y verifica la identidad del servidor
+- C) HTTP usa el puerto 443 y HTTPS el 80
+- D) No hay diferencia en seguridad
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Docker resuelve el nombre del servicio (<code>api</code>) dentro de su red interna; por eso Nginx la encuentra y el host no.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTPS = HTTP + TLS. TLS aporta cifrado (nadie puede leer el tráfico) e identidad (el certificado verifica quién es el servidor).</details>
 
-**15.** El certificado del laboratorio es **autofirmado**. Por eso en `curl` se usa `-k`. ¿Qué implica?
+**15.** ¿Para qué sirve **SSH**?
 
-A) Que el cifrado no funciona
-B) Que ninguna CA lo avala, así que el cliente no confía en él por defecto (válido solo para pruebas)
-C) Que es más seguro que uno real
-D) Que no caduca
+- A) Para navegar por webs cifradas
+- B) Para abrir una terminal remota cifrada en un servidor
+- C) Para generar certificados
+- D) Para filtrar tráfico de red
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un autofirmado cifra igual, pero al no estar avalado por una CA el navegador/cliente desconfía; en producción se usa uno emitido por una CA.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> SSH permite administrar un servidor de forma remota y cifrada. Sustituyó a Telnet, que enviaba todo en claro incluyendo contraseñas.</details>
 
-**16.** Intentas `curl http://localhost:8000/salud` y obtienes *Connection refused*. ¿Por qué?
+**16.** Una **VPN** crea un túnel cifrado. ¿Qué conseguiría si levantaras una VPN hacia la red `interna` del lab?
 
-A) La API está rota
-B) La API no publica ningún puerto hacia el host: está aislada en la red interna
-C) Falta el token
-D) El certificado ha caducado
+- A) Nada, el laboratorio no la soporta
+- B) Entrar en la red interna como si estuvieras físicamente en ella, pudiendo llegar a la API directamente
+- C) Solo cifrar el tráfico web
+- D) Deshabilitar el certificado autofirmado
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Es el comportamiento deseado: desde el host no hay ruta a la API; demuestra el aislamiento de redes.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La VPN te convierte en un miembro más de la red interna. Desde ahí podrías llamar a <code>http://api:8000</code> directamente, igual que hace Nginx.</details>
 
-**17.** ¿Qué código HTTP devuelve `/empleados/99` (un id que no existe) con token válido?
+**17.** ¿Qué problema resuelve **RADIUS**?
 
-A) 200
-B) 301
-C) 401
-D) 404
+- A) Cifrar el disco del servidor
+- B) Centralizar la autenticación en un único punto en vez de tener credenciales repartidas por cada servicio
+- C) Generar certificados automáticamente
+- D) Bloquear ataques de fuerza bruta
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: D.</b> 404 = no encontrado: la autenticación es correcta, pero el recurso no existe.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> RADIUS permite que todos los servicios pregunten a un único servidor de autenticación. Alta, baja o cambio de contraseña se hace en un solo sitio.</details>
 
-**18.** La red `interna` del compose tiene `internal: true`. ¿Qué significa?
+**18.** ¿Qué significa en el lab que Nginx haga de **pasarela**?
 
-A) Que es más rápida
-B) Que no tiene salida a Internet: aislamiento
-C) Que solo admite HTTPS
-D) Que es la red del host
+- A) Que guarda copias de seguridad
+- B) Que es el único punto de entrada: toda petición pasa por él antes de llegar a la API
+- C) Que cifra los datos almacenados
+- D) Que gestiona los usuarios
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>internal: true</code> deja la red sin acceso al exterior; refuerza el aislamiento de la zona donde vive la API.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La pasarela concentra el control: autenticación, cifrado TLS, registro de accesos. La API no sabe nada de todo eso; se lo delega a Nginx.</details>
 
-**19.** En `pruebas.py`, ¿por qué se dirigen todas las pruebas a `https://localhost:8443` y no al puerto de la API?
+**19.** En el laboratorio generaste un certificado con `openssl req -x509 ...`. ¿Qué tipo de certificado crea ese comando?
 
-A) Porque la API no funciona
-B) Porque se prueba el sistema como lo vería un cliente real: a través de la pasarela
-C) Porque es más rápido
-D) Porque la API no tiene endpoints
+- A) Un certificado emitido por una CA reconocida
+- B) Un certificado autofirmado, válido para laboratorio pero no para producción
+- C) Un certificado caducado
+- D) Un certificado sin clave privada
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Se prueba la entrada real (la pasarela HTTPS); la API directa ni siquiera es accesible desde fuera.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>-x509</code> genera un certificado autofirmado: el propio sujeto lo firma, sin que ninguna CA lo valide. Perfecto para pruebas, inaceptable para producción.</details>
 
-**20.** ¿Por qué **SSH** sustituyó a **Telnet** para administración remota?
+**20.** La API del lab tiene dos endpoints que exigen token y uno que no (`/salud`). ¿Por qué es buena práctica tener un endpoint de salud público?
 
-A) Porque es más rápido
-B) Porque cifra la sesión, mientras que Telnet enviaba todo (incluidas contraseñas) en claro
-C) Porque Telnet no existe
-D) Porque usa HTTP
+- A) Para evitar usar el certificado
+- B) Para que sistemas de monitorización puedan verificar que el servicio está vivo sin necesitar credenciales
+- C) Porque es obligatorio en FastAPI
+- D) Para que los atacantes no detecten el servidor
 
-<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La diferencia clave es el cifrado: con Telnet, cualquiera que capturara el tráfico leía la contraseña.</details>
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Los sistemas de monitorización (balanceadores, orquestadores como Kubernetes) comprueban la salud del servicio periódicamente. Necesitan hacerlo sin autenticarse.</details>
