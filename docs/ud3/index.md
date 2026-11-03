@@ -465,7 +465,16 @@ La UT3 se evalúa con un **examen tipo test**.
 
 > 20 preguntas. Mezclan teoría y lo que viste y probaste en el laboratorio. Una sola respuesta correcta.
 
-**1.** En el laboratorio, intentaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*. ¿Por qué?
+**1.** El `compose.yaml` del laboratorio define la API así:
+
+```yaml
+  api:
+    build: ./api
+    networks:
+      - interna
+```
+
+Ejecutaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*. ¿Por qué?
 
 - A) La API tiene un error
 - B) La API no publica ningún puerto hacia el anfitrión; solo Nginx puede llegar a ella desde la red interna
@@ -474,7 +483,16 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La API no tiene <code>ports:</code> en el compose, así que no existe ningún puente entre la red Docker y tu máquina. Es el aislamiento funcionando correctamente.</details>
 
-**2.** Ejecutaste `curl -k https://localhost:8443/empleados` sin token y obtuviste código **401**. ¿Qué significa?
+**2.** Ejecutaste este comando y obtuviste el código de la primera línea:
+
+```bash
+curl -k -o /dev/null -s -w "%{http_code}\n" https://localhost:8443/empleados
+```
+```text
+401
+```
+
+¿Qué indica ese código?
 
 - A) El recurso no existe
 - B) La petición no está autenticada: falta o es incorrecto el token
@@ -483,7 +501,16 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 401 significa "no autorizado": la API exige la cabecera <code>X-Token</code> y no se envió.</details>
 
-**3.** Cuando añadiste `-H "X-Token: secreto-de-laboratorio"`, el servidor respondió **200**. ¿Qué representa ese código?
+**3.** Al añadir el token la respuesta cambió:
+
+```bash
+curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
+```
+```text
+200
+```
+
+¿Qué indica el código **200**?
 
 - A) Error del servidor
 - B) Petición correcta, recurso devuelto
@@ -492,7 +519,16 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 200 OK es la respuesta estándar de éxito: la petición fue correcta y el servidor devuelve lo que se pidió.</details>
 
-**4.** Pediste `/empleados/99` con token válido y obtuviste **404**. ¿Qué indica?
+**4.** Con token válido pediste un id que no existe:
+
+```bash
+curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/99
+```
+```text
+404
+```
+
+¿Qué indica ese código?
 
 - A) El token es incorrecto
 - B) El empleado con id 99 no existe en la base de datos
@@ -501,7 +537,16 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 404 "Not Found": la autenticación fue correcta pero el recurso solicitado no existe.</details>
 
-**5.** En `nginx.conf`, la directiva `return 301 https://$host$request_uri;` en el servidor del puerto 80 sirve para:
+**5.** El `nginx.conf` tiene este bloque:
+
+```nginx
+server {
+    listen 80;
+    return 301 https://$host$request_uri;
+}
+```
+
+Al ejecutar `curl -i http://localhost:8080/salud` viste el código **301** en la respuesta. ¿Para qué sirve esa directiva?
 
 - A) Bloquear todo el tráfico HTTP
 - B) Redirigir permanentemente el tráfico HTTP a HTTPS, forzando cifrado
@@ -510,7 +555,14 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El código 301 es una redirección permanente. Nginx recibe la petición HTTP y le dice al cliente que vuelva usando HTTPS.</details>
 
-**6.** Ejecutaste `curl https://localhost:8443/salud` sin `-k` y dio error de certificado. ¿Por qué?
+**6.** Al ejecutar `curl https://localhost:8443/salud` sin la opción `-k` obtuviste:
+
+```text
+curl: (60) SSL certificate problem: self-signed certificate
+More details here: https://curl.se/docs/sslcerts.html
+```
+
+¿Por qué da ese error con el certificado del laboratorio?
 
 - A) El servidor no tiene certificado
 - B) El certificado es autofirmado: ninguna CA reconocida lo avala, así que el cliente desconfía
@@ -528,7 +580,16 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La diferencia es de confianza, no de cifrado. Una CA verifica la identidad del servidor antes de emitir el certificado; el autofirmado lo firma uno mismo.</details>
 
-**8.** En el `compose.yaml` del lab, la red `interna` tiene `internal: true`. ¿Qué implica para la API?
+**8.** El `compose.yaml` define las redes así:
+
+```yaml
+networks:
+  dmz:
+  interna:
+    internal: true
+```
+
+¿Qué implica `internal: true` para los contenedores que están solo en esa red (como la API)?
 
 - A) Que va más rápida
 - B) Que no tiene salida a internet; está aislada
@@ -537,7 +598,19 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>internal: true</code> crea una red sin enrutamiento hacia el exterior. La API vive ahí y no puede ni ser alcanzada ni llegar a internet por su cuenta.</details>
 
-**9.** En el `compose.yaml`, Nginx está en dos redes (`dmz` e `interna`) pero la API solo en `interna`. ¿Por qué?
+**9.** En el `compose.yaml`:
+
+```yaml
+  nginx:
+    networks:
+      - dmz
+      - interna
+  api:
+    networks:
+      - interna
+```
+
+¿Por qué Nginx está en dos redes y la API solo en una?
 
 - A) Es un error de configuración
 - B) Nginx necesita estar en las dos para hacer de puente entre el exterior y la API
@@ -546,7 +619,15 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Nginx es la pasarela: recibe tráfico del exterior (red dmz) y lo reenvía a la API (red interna). La API no necesita estar en la dmz porque nadie debe llegar a ella directamente.</details>
 
-**10.** `proxy_pass http://api:8000;` en `nginx.conf` funciona porque:
+**10.** En `nginx.conf` Nginx reenvía las peticiones así:
+
+```nginx
+location / {
+    proxy_pass http://api:8000;
+}
+```
+
+¿Por qué funciona usar el nombre `api` en vez de una IP?
 
 - A) `api` es una IP pública fija
 - B) Docker resuelve el nombre `api` dentro de la red interna como la dirección del contenedor
@@ -564,7 +645,17 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La DMZ es la "recepción": aloja lo que debe ser accesible desde fuera sin dar acceso directo a lo valioso de dentro. En el lab, Nginx vive ahí.</details>
 
-**12.** En las **AAA**, la **autenticación** del laboratorio se implementa con:
+**12.** En `app.py`, el endpoint de datos comprueba esto:
+
+```python
+@app.get("/empleados")
+def listar(x_token: str = Header(default="")):
+    if x_token != TOKEN_VALIDO:
+        raise HTTPException(status_code=401, detail="token no válido")
+    return list(EMPLEADOS.values())
+```
+
+¿Qué parte de las **AAA** implementa este código?
 
 - A) El certificado SSL
 - B) La cabecera `X-Token` que la API comprueba en cada petición
@@ -573,7 +664,19 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La autenticación responde a "¿quién eres?". En el lab, la API verifica el token antes de devolver datos: si no está o es incorrecto, devuelve 401.</details>
 
-**13.** ¿Qué hace `pruebas.py`? ¿Por qué llama siempre a `https://localhost:8443` y nunca a `http://localhost:8000`?
+**13.** `pruebas.py` define el destino así:
+
+```python
+BASE = "https://localhost:8443"   # la pasarela
+
+PRUEBAS = [
+    ("Salud del servicio",  lambda: requests.get(f"{BASE}/salud", verify=False), 200),
+    ("Sin token (denegado)",lambda: requests.get(f"{BASE}/empleados", verify=False), 401),
+    ...
+]
+```
+
+¿Por qué todas las pruebas apuntan a `localhost:8443` (Nginx) y no a `localhost:8000` (la API)?
 
 - A) Por casualidad; cualquiera de las dos funcionaría
 - B) Prueba el sistema como lo haría un cliente real: pasando por la pasarela, no directamente a la API
@@ -600,7 +703,15 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> SSH permite administrar un servidor de forma remota y cifrada. Sustituyó a Telnet, que enviaba todo en claro incluyendo contraseñas.</details>
 
-**16.** Una **VPN** crea un túnel cifrado. ¿Qué conseguiría si levantaras una VPN hacia la red `interna` del lab?
+**16.** En el lab, ejecutaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*, porque la API no publica puertos. Solo Nginx llega a ella por la red `interna`:
+
+```yaml
+networks:
+  interna:
+    internal: true
+```
+
+Si levantaras una **VPN** que te conectase a esa red `interna`, ¿qué cambiaría?
 
 - A) Nada, el laboratorio no la soporta
 - B) Entrar en la red interna como si estuvieras físicamente en ella, pudiendo llegar a la API directamente
@@ -627,7 +738,17 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La pasarela concentra el control: autenticación, cifrado TLS, registro de accesos. La API no sabe nada de todo eso; se lo delega a Nginx.</details>
 
-**19.** En el laboratorio generaste un certificado con `openssl req -x509 ...`. ¿Qué tipo de certificado crea ese comando?
+**19.** Para el laboratorio generaste el certificado con este comando:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout nginx/certs/key.pem \
+    -out nginx/certs/cert.pem \
+    -days 365 \
+    -subj "/CN=intranet.local"
+```
+
+¿Qué tipo de certificado crea la opción `-x509` de este comando?
 
 - A) Un certificado emitido por una CA reconocida
 - B) Un certificado autofirmado, válido para laboratorio pero no para producción
@@ -636,7 +757,20 @@ La UT3 se evalúa con un **examen tipo test**.
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>-x509</code> genera un certificado autofirmado: el propio sujeto lo firma, sin que ninguna CA lo valide. Perfecto para pruebas, inaceptable para producción.</details>
 
-**20.** La API del lab tiene dos endpoints que exigen token y uno que no (`/salud`). ¿Por qué es buena práctica tener un endpoint de salud público?
+**20.** En `app.py`:
+
+```python
+@app.get("/salud")
+def salud():
+    return {"estado": "ok"}   # sin comprobación de token
+
+@app.get("/empleados")
+def listar(x_token: str = Header(default="")):
+    if x_token != TOKEN_VALIDO:
+        raise HTTPException(status_code=401, detail="no autorizado")
+```
+
+¿Por qué tiene sentido que `/salud` sea público y `/empleados` requiera token?
 
 - A) Para evitar usar el certificado
 - B) Para que sistemas de monitorización puedan verificar que el servicio está vivo sin necesitar credenciales

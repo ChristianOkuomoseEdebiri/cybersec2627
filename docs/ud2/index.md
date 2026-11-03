@@ -515,7 +515,22 @@ La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tip
 
 > 15 preguntas. Mezclan teoría y cosas que viste en los labs. Una sola respuesta correcta.
 
-**1.** En el Lab 1 viste que dentro del contenedor solo aparecía **1 proceso**. ¿Qué explica esto?
+**1.** Ejecutaste `auditor_sistema.py` dentro del contenedor y obtuviste esta salida:
+
+```text
+=== Auditoría del sistema ===
+SO: Linux 6.1.0
+CPU: 0.0 %
+Memoria: 3.1% usada (120 MB de 3997 MB)
+
+-- Procesos que más memoria usan --
+  PID      1  python                0.4%
+
+Total de procesos visibles: 1
+(Dentro de un contenedor, estos son los procesos DE ESE contenedor.)
+```
+
+¿Por qué solo aparece **1 proceso**?
 
 - A) `psutil` tiene un bug dentro de Docker
 - B) El contenedor está aislado y solo ve sus propios procesos, no los del anfitrión
@@ -533,7 +548,19 @@ La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tip
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El porcentaje de CPU es una comparación entre dos momentos. La primera llamada sin <code>interval</code> no tiene punto de referencia, así que devuelve 0.0.</details>
 
-**3.** En el Lab 2, ¿qué diferencia hay entre `nmap servidor` y `nmap -sV servidor`?
+**3.** En el Lab 2 lanzaste dos comandos y obtuviste estas salidas:
+
+```text
+$ nmap servidor
+PORT   STATE SERVICE
+80/tcp open  http
+
+$ nmap -sV servidor
+PORT   STATE SERVICE VERSION
+80/tcp open  http    nginx 1.18.0
+```
+
+¿Qué información da `-sV` que no da el primer comando?
 
 - A) No hay diferencia, son equivalentes
 - B) `nmap servidor` solo descubre puertos abiertos; `-sV` además detecta el software y su versión
@@ -542,7 +569,17 @@ La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tip
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Sin <code>-sV</code> nmap solo dice "puerto 80 abierto". Con <code>-sV</code> dice "puerto 80, nginx 1.18.0" — esa versión es la clave para buscar vulnerabilidades.</details>
 
-**4.** Tras ejecutar `nmap -sV servidor` en el Lab 2, la salida mostraba `nginx 1.18.0`. ¿Para qué sirvió esa información en el paso siguiente?
+**4.** Tras ejecutar `nmap -sV servidor` obtuviste `nginx 1.18.0`. Luego ejecutaste `python informe.py` y viste:
+
+```text
+=== Informe de auditoría ===
+
+  Puerto    80  nginx 1.18.0      VULNERABLE: CVE-2021-23017 (resolver, gravedad alta)
+
+Resumen: 1 servicio(s) con vulnerabilidades conocidas.
+```
+
+¿Qué hizo `informe.py` con la versión detectada?
 
 - A) Para cerrar ese puerto
 - B) Para cruzarla con la NVD y encontrar que tiene el CVE-2021-23017
@@ -551,7 +588,18 @@ La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tip
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El script <code>informe.py</code> cruza la versión detectada con <code>NVD_LOCAL</code> y encuentra que <code>nginx/1.18.0</code> tiene una vulnerabilidad conocida registrada.</details>
 
-**5.** En el Lab 2, `nmap` guarda el resultado con `-oX resultado.xml`. ¿Por qué en formato XML y no solo en pantalla?
+**5.** En el Lab 2 guardaste el resultado de nmap con `-oX resultado.xml` y luego `informe.py` lo leyó así:
+
+```python
+import xml.etree.ElementTree as ET
+arbol = ET.parse("resultado.xml")
+for puerto in arbol.iter("port"):
+    servicio = puerto.find("service")
+    producto = servicio.get("product", "")
+    version  = servicio.get("version", "")
+```
+
+¿Por qué usar XML en lugar de la salida de texto de nmap?
 
 - A) Porque XML ocupa menos espacio
 - B) Porque XML puede leerse con un programa; así `informe.py` lo procesa automáticamente
@@ -582,7 +630,17 @@ grep "Failed password" auth.log | grep -oE "from [0-9.]+" | awk '{print $2}' | s
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El comando filtra las líneas de fallo de login, extrae la IP y las cuenta. "4 10.0.0.66" significa que esa IP acumuló 4 intentos fallidos.</details>
 
-**8.** También ejecutaste `grep " 404$" web.log | awk '{print $1}' | sort | uniq -c | sort -rn` y obtuviste `4 10.0.0.66`. ¿Qué estaba haciendo esa IP en el servidor web?
+**8.** En el Lab 3, `web.log` contenía estas líneas:
+
+```text
+10.0.0.66 - GET /admin 404
+10.0.0.66 - GET /.env 404
+10.0.0.66 - GET /wp-login.php 404
+10.0.0.66 - GET /backup.zip 404
+10.0.0.5  - GET /index.html 200
+```
+
+Al ejecutar `grep " 404$" web.log | awk '{print $1}' | sort | uniq -c | sort -rn` obtuviste `4 10.0.0.66`. ¿Qué estaba haciendo esa IP?
 
 - A) Descargando ficheros grandes
 - B) Probando rutas que no existen, buscando páginas de administración o backups
@@ -591,7 +649,16 @@ grep "Failed password" auth.log | grep -oE "from [0-9.]+" | awk '{print $2}' | s
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Pedir muchas rutas inexistentes (/admin, /.env, /wp-login.php…) es rastreo de rutas: el atacante busca puntos de entrada o ficheros sensibles.</details>
 
-**9.** En `detector.py`, el `UMBRAL = 3` evita una cosa concreta. ¿Cuál?
+**9.** En `detector.py` el detector lanza alertas así:
+
+```python
+UMBRAL = 3
+for ip, n in fallos.items():
+    if n >= UMBRAL:
+        print(f"  [ALERTA] {ip}: fuerza bruta ({n} fallos de login)")
+```
+
+Con los datos del lab, `10.0.0.66` tenía 4 fallos y `10.0.0.5` tenía 1. ¿Para qué sirve el `UMBRAL = 3`?
 
 - A) Que el programa sea demasiado lento
 - B) Que se generen alertas por uno o dos intentos normales (falsos positivos)
@@ -600,7 +667,17 @@ grep "Failed password" auth.log | grep -oE "from [0-9.]+" | awk '{print $2}' | s
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un usuario puede equivocarse una vez al escribir su contraseña. El umbral evita generar una alerta de fuerza bruta por eso; solo alerta cuando el patrón es repetido.</details>
 
-**10.** La misma IP `10.0.0.66` apareció en el Lab 2 (auditor) y en el Lab 3 (detectada). ¿Qué demuestra esto?
+**10.** En el Lab 2, el auditor usó la IP `10.0.0.66`. En el Lab 3, al analizar los logs obtuviste:
+
+```text
+Fallos de login por IP: {'10.0.0.66': 4}
+Errores 404 por IP:     {'10.0.0.66': 4}
+
+--- ALERTAS ---
+  [ALERTA] 10.0.0.66: fuerza bruta (4 fallos de login) + rastreo de rutas (4 rutas inexistentes)
+```
+
+¿Qué relación hay entre lo que hizo el auditor y lo que detectó el Lab 3?
 
 - A) Que hay un error en el laboratorio
 - B) Que las acciones del auditor dejan rastro en los logs, y el defensor puede detectarlas
@@ -609,7 +686,16 @@ grep "Failed password" auth.log | grep -oE "from [0-9.]+" | awk '{print $2}' | s
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Es la misma acción vista desde los dos lados: escanear y tantear deja huella en logs y tráfico. El defensor detecta exactamente lo que el auditor hizo.</details>
 
-**11.** Diferencia entre **IDS** e **IPS**:
+**11.** El `detector.py` del Lab 3 hace esto cuando detecta un patrón:
+
+```python
+if fallos[ip] >= UMBRAL:
+    motivos.append(f"fuerza bruta ({fallos[ip]} fallos de login)")
+if motivos:
+    print(f"  [ALERTA] {ip}: " + " + ".join(motivos))
+```
+
+Imprime la alerta pero no bloquea nada. ¿Cómo se llama este tipo de herramienta, y en qué se diferencia de una que sí bloquea?
 
 - A) Son lo mismo
 - B) El IDS avisa cuando detecta algo sospechoso; el IPS además lo bloquea automáticamente
@@ -645,7 +731,21 @@ print(marca)
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La seguridad activa actúa antes y durante el incidente (firewall, IDS, antivirus). La pasiva reduce el daño después (copias, redundancia).</details>
 
-**14.** En el Lab 2, el servidor nginx está en la red Docker pero **sin `ports:`**. ¿Puedes acceder a él desde tu navegador directamente por su IP?
+**14.** El `compose.yaml` del Lab 2 define el servidor así:
+
+```yaml
+services:
+  servidor:
+    image: nginx:1.18.0
+    networks:
+      - laboratorio
+  auditor:
+    build: .
+    networks:
+      - laboratorio
+```
+
+¿Puedes abrir `http://localhost:80` en tu navegador y ver la web del servidor?
 
 - A) Sí, siempre que sepas su IP
 - B) No, sin `ports:` el servidor no es accesible desde fuera de la red Docker
