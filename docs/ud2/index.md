@@ -762,3 +762,30 @@ services:
 - D) No significa nada relevante
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> El umbral es una señal para investigar. Un resultado automático nunca es prueba definitiva: puede ser un falso positivo.</details>
+
+**16.** Un servidor tiene varios servicios en marcha. ¿Por qué el navegador sabe a cuál de ellos dirigirse cuando escribe `https://servidor`?
+
+- A) Lo adivina por el nombre del servidor
+- B) El protocolo HTTPS siempre usa el puerto 443, que es donde escucha el servicio web seguro
+- C) El servidor redirige al navegador al servicio correcto
+- D) Es aleatorio
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Cada servicio escucha en un puerto fijo conocido. El navegador envía la petición al puerto 443 porque HTTPS siempre va ahí. Es el mismo motivo por el que <code>nmap -sV servidor</code> encontró el servicio en el puerto 80 y no en otro.</details>
+
+**17.** En el Lab 2, nmap escaneó los puertos 22, 23, 80, 443, 3306 y 8080. Solo encontró el 80 abierto; los demás devolvieron `closed`. ¿Qué significa `closed`?
+
+- A) Que el servidor está apagado
+- B) Que nadie escucha en ese puerto: si alguien conecta, el sistema responde «no hay nadie aquí»
+- C) Que el puerto está bloqueado por un firewall
+- D) Que el servicio está desactivado permanentemente
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un puerto <code>closed</code> significa que el sistema operativo responde activamente pero no hay ningún servicio escuchando. Si lo intentas con <code>curl</code>, obtienes <i>Connection refused</i>. Es distinto de <code>filtered</code>, donde un firewall descarta los paquetes sin responder.</details>
+
+**18.** En el Lab 3 escaneaste los mismos puertos desde el auditor con nmap. ¿Por qué es importante que un administrador sepa qué puertos están abiertos en sus servidores?
+
+- A) Para saber cuánta memoria usa el servidor
+- B) Para detectar servicios innecesarios expuestos que amplían la superficie de ataque
+- C) Para medir la velocidad de la red
+- D) No es importante, los puertos los gestiona el sistema operativo solo
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Cada puerto abierto es una puerta que un atacante puede intentar cruzar. Un servidor con 20 puertos abiertos tiene más superficie de ataque que uno con 2. Cerrar servicios innecesarios es una práctica básica de hardening (mínimo privilegio aplicado a la red).</details>
