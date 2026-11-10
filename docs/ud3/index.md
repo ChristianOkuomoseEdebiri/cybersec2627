@@ -5,7 +5,7 @@
 | **Resultado de aprendizaje** | RA3 · Implanta seguridad perimetral y acceso remoto |
 | **Trimestre** | 2.º |
 | **Duración** | 14 horas |
-| **Herramientas** | Docker Compose · FastAPI · Nginx · `curl` · Python |
+| **Herramientas** | Docker Compose · FastAPI · Nginx · `curl` · Bruno |
 
 El **perímetro** de una red es su frontera con el exterior. Esta unidad trata de cómo se protege esa frontera (cortafuegos, DMZ, segmentación) y de cómo se permite el **acceso remoto seguro** (protocolos cifrados, pasarelas, VPN). La teoría es breve y va directa a la práctica: construirás **un único laboratorio** que monta la intranet de una empresa pequeña, con una API privada detrás de una pasarela, y comprobarás tú mismo por qué está protegida.
 
@@ -26,14 +26,80 @@ flowchart LR
 
 Imagina una empresa como un edificio. **Internet** es la calle; la **red interna (LAN)** son las oficinas privadas donde está lo valioso (bases de datos, ficheros); y la **DMZ** (*zona desmilitarizada*) es como la **recepción**: una zona intermedia donde se atiende al público sin dejarle entrar en las oficinas.
 
-```mermaid
-flowchart LR
-    I["🌍 Internet"] -->|"solo lo permitido"| D["DMZ<br/>(recepción: pasarela, web)"]
-    D -->|"acceso controlado"| L["Red interna / LAN<br/>(oficinas: API, base de datos)"]
-    I -. "❌ nunca directo" .-> L
-    style D fill:#fef9c3,color:#854d0e
-    style L fill:#dbeafe,color:#1e3a8a
-```
+<figure>
+
+<svg width="100%" viewBox="0 0 680 420" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Arquitectura DMZ al estilo Cisco</title>
+<desc>Diagrama de seguridad perimetral: Internet, cortafuegos exterior, DMZ con servidores públicos, cortafuegos interior y red interna LAN</desc>
+<defs><marker id="ard" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="10" y="30" width="110" height="360" rx="10" fill="none" stroke="#E24B4A" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text font-size="12" font-family="sans-serif" x="65" y="52" text-anchor="middle" fill="#A32D2D" font-weight="500">Internet</text>
+<ellipse cx="65" cy="130" rx="38" ry="26" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<ellipse cx="45" cy="120" rx="20" ry="13" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<ellipse cx="82" cy="118" rx="22" ry="14" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="65" y="134" text-anchor="middle" fill="#A32D2D">internet</text>
+<rect x="30" y="228" width="70" height="36" rx="6" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="65" y="250" text-anchor="middle" fill="#A32D2D">atacante</text>
+<rect x="30" y="296" width="70" height="36" rx="6" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="65" y="318" text-anchor="middle" fill="#A32D2D">usuario ext.</text>
+<rect x="145" y="155" width="50" height="88" rx="8" fill="#FAC775" stroke="#BA7517" stroke-width="1.5"/>
+<text font-size="11" font-family="sans-serif" x="170" y="178" text-anchor="middle" fill="#633806" font-weight="500">🔥 FW</text>
+<text font-size="10" font-family="sans-serif" x="170" y="192" text-anchor="middle" fill="#633806">exterior</text>
+<text font-size="10" font-family="sans-serif" x="170" y="206" text-anchor="middle" fill="#633806">filtrado</text>
+<text font-size="10" font-family="sans-serif" x="170" y="220" text-anchor="middle" fill="#633806">básico</text>
+<line x1="122" y1="195" x2="143" y2="195" stroke="#E24B4A" stroke-width="1.5" marker-end="url(#ard)"/>
+<text font-size="10" font-family="sans-serif" x="132" y="188" text-anchor="middle" fill="#A32D2D">HTTP</text>
+<text font-size="10" font-family="sans-serif" x="132" y="207" text-anchor="middle" fill="#A32D2D">HTTPS</text>
+<rect x="208" y="30" width="195" height="360" rx="10" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text font-size="12" font-family="sans-serif" x="305" y="52" text-anchor="middle" fill="#085041" font-weight="500">DMZ · Zona perimetral</text>
+<rect x="228" y="68" width="155" height="50" rx="6" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="305" y="90" text-anchor="middle" fill="#04342C" font-weight="500">🌐 Servidor web</text>
+<text font-size="10" font-family="sans-serif" x="305" y="108" text-anchor="middle" fill="#085041">Nginx / Apache</text>
+<rect x="228" y="140" width="155" height="50" rx="6" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="305" y="162" text-anchor="middle" fill="#04342C" font-weight="500">✉️ Servidor correo</text>
+<text font-size="10" font-family="sans-serif" x="305" y="180" text-anchor="middle" fill="#085041">SMTP / IMAP</text>
+<rect x="228" y="212" width="155" height="50" rx="6" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="305" y="234" text-anchor="middle" fill="#04342C" font-weight="500">⚙️ Proxy / Pasarela</text>
+<text font-size="10" font-family="sans-serif" x="305" y="252" text-anchor="middle" fill="#085041">como el Nginx del lab</text>
+<rect x="228" y="284" width="155" height="50" rx="6" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="305" y="306" text-anchor="middle" fill="#04342C" font-weight="500">🔎 DNS público</text>
+<text font-size="10" font-family="sans-serif" x="305" y="324" text-anchor="middle" fill="#085041">resolución de nombres</text>
+<line x1="197" y1="195" x2="226" y2="195" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#ard)"/>
+<text font-size="10" font-family="sans-serif" x="212" y="188" text-anchor="middle" fill="#085041">solo</text>
+<text font-size="10" font-family="sans-serif" x="212" y="207" text-anchor="middle" fill="#085041">80/443</text>
+<rect x="418" y="155" width="50" height="88" rx="8" fill="#FAC775" stroke="#BA7517" stroke-width="1.5"/>
+<text font-size="11" font-family="sans-serif" x="443" y="178" text-anchor="middle" fill="#633806" font-weight="500">🔥 FW</text>
+<text font-size="10" font-family="sans-serif" x="443" y="192" text-anchor="middle" fill="#633806">interior</text>
+<text font-size="10" font-family="sans-serif" x="443" y="206" text-anchor="middle" fill="#633806">filtrado</text>
+<text font-size="10" font-family="sans-serif" x="443" y="220" text-anchor="middle" fill="#633806">estricto</text>
+<line x1="405" y1="195" x2="416" y2="195" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#ard)"/>
+<rect x="480" y="30" width="185" height="360" rx="10" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text font-size="12" font-family="sans-serif" x="572" y="52" text-anchor="middle" fill="#0C447C" font-weight="500">Red interna · LAN</text>
+<line x1="471" y1="195" x2="478" y2="195" stroke="#185FA5" stroke-width="1.5" marker-end="url(#ard)"/>
+<rect x="498" y="68" width="148" height="50" rx="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="572" y="90" text-anchor="middle" fill="#042C53" font-weight="500">💻 PCs empleados</text>
+<text font-size="10" font-family="sans-serif" x="572" y="108" text-anchor="middle" fill="#0C447C">acceso interno</text>
+<rect x="498" y="140" width="148" height="50" rx="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="572" y="162" text-anchor="middle" fill="#042C53" font-weight="500">🗄 Base de datos</text>
+<text font-size="10" font-family="sans-serif" x="572" y="180" text-anchor="middle" fill="#0C447C">nunca expuesta</text>
+<rect x="498" y="212" width="148" height="50" rx="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="572" y="234" text-anchor="middle" fill="#042C53" font-weight="500">⚙️ API interna</text>
+<text font-size="10" font-family="sans-serif" x="572" y="252" text-anchor="middle" fill="#0C447C">como en el lab</text>
+<rect x="498" y="284" width="148" height="50" rx="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="572" y="306" text-anchor="middle" fill="#042C53" font-weight="500">🔑 RADIUS / AAA</text>
+<text font-size="10" font-family="sans-serif" x="572" y="324" text-anchor="middle" fill="#0C447C">autenticación central</text>
+<rect x="22" y="388" width="12" height="10" rx="2" fill="none" stroke="#E24B4A" stroke-dasharray="4 2" stroke-width="1.5"/>
+<text font-size="11" font-family="sans-serif" x="40" y="397" fill="#A32D2D">No confiable</text>
+<rect x="140" y="388" width="12" height="10" rx="2" fill="none" stroke="#0F6E56" stroke-dasharray="4 2" stroke-width="1.5"/>
+<text font-size="11" font-family="sans-serif" x="158" y="397" fill="#085041">DMZ</text>
+<rect x="210" y="388" width="12" height="10" rx="2" fill="none" stroke="#185FA5" stroke-dasharray="4 2" stroke-width="1.5"/>
+<text font-size="11" font-family="sans-serif" x="228" y="397" fill="#0C447C">Red interna</text>
+<rect x="358" y="388" width="12" height="10" rx="6" fill="#FAC775" stroke="#BA7517" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="376" y="397" fill="#633806">Cortafuegos</text>
+</svg>
+
+<figcaption>Arquitectura clásica con DMZ: dos cortafuegos crean tres zonas con distinto nivel de confianza. En el laboratorio replicas esto con las redes Docker <code>dmz</code> e <code>interna</code>.</figcaption>
+</figure>
 
 La regla de oro: **desde Internet nunca se llega directamente a la red interna**. Lo que da la cara (una web, una pasarela) vive en la DMZ; si alguien la compromete, todavía tiene otra barrera antes de llegar a lo importante.
 
@@ -68,6 +134,73 @@ La regla de oro para un administrador: **cuantos menos puertos abiertos, menor e
 !!! tip "Puertos no estándar"
     En el laboratorio usamos el **8443** en vez del 443 y el **8080** en vez del 80. Los puertos por debajo del 1024 requieren permisos de administrador (root) para usarlos. En desarrollo se usan puertos altos para no necesitar sudo.
 
+Pulsa cada puerta para ver qué hay detrás y cómo aparece en el laboratorio:
+
+<div style="border:1px solid var(--md-default-fg-color--lightest);border-radius:8px;overflow:hidden;margin:1rem 0">
+<svg width="100%" viewBox="0 0 680 310" role="img" xmlns="http://www.w3.org/2000/svg" id="puertos-svg">
+<title>Puertos TCP como puertas de un servidor</title>
+<desc>Edificio interactivo: pulsa cada puerta numerada para ver qué servicio escucha detrás</desc>
+<rect x="160" y="10" width="360" height="220" rx="12" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.5"/>
+<rect x="160" y="10" width="360" height="34" rx="12" fill="#185FA5"/>
+<rect x="160" y="30" width="360" height="14" fill="#185FA5"/>
+<text font-size="13" font-family="sans-serif" x="340" y="32" text-anchor="middle" fill="#E6F1FB" font-weight="500">Servidor (IP: 10.0.0.1) · 65 535 puertas</text>
+<g id="pb22" style="cursor:pointer" onclick="mostrar(22)">
+  <rect x="182" y="58" width="88" height="68" rx="6" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.5"/>
+  <rect x="210" y="76" width="30" height="38" rx="4" fill="#0F6E56" opacity=".3"/>
+  <circle cx="236" cy="97" r="3" fill="#0F6E56"/>
+  <text font-size="13" font-family="sans-serif" x="226" y="72" text-anchor="middle" fill="#04342C" font-weight="500">:22</text>
+  <text font-size="11" font-family="sans-serif" x="226" y="138" text-anchor="middle" fill="#085041">SSH</text>
+</g>
+<g id="pb80" style="cursor:pointer" onclick="mostrar(80)">
+  <rect x="296" y="58" width="88" height="68" rx="6" fill="#B5D4F4" stroke="#185FA5" stroke-width="1.5"/>
+  <rect x="324" y="76" width="30" height="38" rx="4" fill="#185FA5" opacity=".3"/>
+  <circle cx="350" cy="97" r="3" fill="#185FA5"/>
+  <text font-size="13" font-family="sans-serif" x="340" y="72" text-anchor="middle" fill="#042C53" font-weight="500">:80</text>
+  <text font-size="11" font-family="sans-serif" x="340" y="138" text-anchor="middle" fill="#0C447C">HTTP</text>
+</g>
+<g id="pb443" style="cursor:pointer" onclick="mostrar(443)">
+  <rect x="410" y="58" width="88" height="68" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+  <rect x="438" y="76" width="30" height="38" rx="4" fill="#534AB7" opacity=".3"/>
+  <circle cx="464" cy="97" r="3" fill="#534AB7"/>
+  <text font-size="13" font-family="sans-serif" x="454" y="72" text-anchor="middle" fill="#26215C" font-weight="500">:443</text>
+  <text font-size="11" font-family="sans-serif" x="454" y="138" text-anchor="middle" fill="#3C3489">HTTPS</text>
+</g>
+<g id="pb8000" style="cursor:pointer" onclick="mostrar(8000)">
+  <rect x="182" y="158" width="88" height="68" rx="6" fill="#FAC775" stroke="#BA7517" stroke-width="1.5"/>
+  <rect x="210" y="176" width="30" height="38" rx="4" fill="#BA7517" opacity=".3"/>
+  <circle cx="236" cy="197" r="3" fill="#BA7517"/>
+  <text font-size="12" font-family="sans-serif" x="226" y="172" text-anchor="middle" fill="#412402" font-weight="500">:8000</text>
+  <text font-size="11" font-family="sans-serif" x="226" y="236" text-anchor="middle" fill="#633806">API lab</text>
+</g>
+<g id="pb8443" style="cursor:pointer" onclick="mostrar(8443)">
+  <rect x="296" y="158" width="88" height="68" rx="6" fill="#F4C0D1" stroke="#993556" stroke-width="1.5"/>
+  <rect x="324" y="176" width="30" height="38" rx="4" fill="#993556" opacity=".3"/>
+  <circle cx="350" cy="197" r="3" fill="#993556"/>
+  <text font-size="12" font-family="sans-serif" x="340" y="172" text-anchor="middle" fill="#4B1528" font-weight="500">:8443</text>
+  <text font-size="11" font-family="sans-serif" x="340" y="236" text-anchor="middle" fill="#72243E">HTTPS lab</text>
+</g>
+<g id="pb9999" style="cursor:pointer" onclick="mostrar(9999)">
+  <rect x="410" y="158" width="88" height="68" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5"/>
+  <rect x="438" y="176" width="30" height="38" rx="4" fill="#5F5E5A" opacity=".2"/>
+  <circle cx="464" cy="197" r="3" fill="#888780"/>
+  <text font-size="12" font-family="sans-serif" x="454" y="172" text-anchor="middle" fill="#444441" font-weight="500">:9999</text>
+  <text font-size="11" font-family="sans-serif" x="454" y="236" text-anchor="middle" fill="#888780">cerrado</text>
+</g>
+<rect x="20" y="140" width="108" height="58" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="74" y="162" text-anchor="middle" fill="#2C2C2A">tu navegador</text>
+<text font-size="11" font-family="sans-serif" x="74" y="176" text-anchor="middle" fill="#2C2C2A">o programa</text>
+<text font-size="10" font-family="sans-serif" x="74" y="190" text-anchor="middle" fill="#888780">(cliente)</text>
+<line x1="130" y1="168" x2="158" y2="168" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arl)"/>
+<rect x="20" y="254" width="640" height="50" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="1" id="det-bg"/>
+<text font-size="13" font-family="sans-serif" x="340" y="274" text-anchor="middle" fill="#173404" font-weight="500" id="det-title">👆 Pulsa una puerta para ver qué hay detrás</text>
+<text font-size="11" font-family="sans-serif" x="340" y="292" text-anchor="middle" fill="#27500A" id="det-body"></text>
+</svg>
+</div>
+<script>
+var datos={22:{t:"Puerto 22 · SSH",b:"Terminal remota cifrada. En el Lab 2 nmap lo encontró cerrado (closed) en el servidor nginx.",c:"#085041"},80:{t:"Puerto 80 · HTTP",b:"Web sin cifrar. Nginx lo escucha y devuelve 301 redirigiendo a HTTPS:8443.",c:"#0C447C"},443:{t:"Puerto 443 · HTTPS",b:"Web cifrada con TLS. En producción Nginx escucha aquí; en el lab usamos el 8443.",c:"#3C3489"},8000:{t:"Puerto 8000 · API del lab",b:"FastAPI escucha aquí DENTRO de la red Docker. Sin ports: → invisible desde tu PC. Connection refused.",c:"#633806"},8443:{t:"Puerto 8443 · HTTPS del lab",b:"Mismo protocolo que el 443 pero sin necesitar root. Nginx lo publica con ports:8443:443.",c:"#72243E"},9999:{t:"Puerto 9999 · cerrado (closed)",b:"Nadie escucha. curl localhost:9999 → Connection refused. nmap lo marca como closed.",c:"#5F5E5A"}};
+function mostrar(n){var d=datos[n];if(!d)return;var t=document.getElementById("det-title"),b=document.getElementById("det-body");t.textContent=d.t;t.setAttribute("fill",d.c);b.textContent=d.b;}
+</script>
+
 ### 1.2 Protocolos seguros: HTTP/HTTPS, TLS y SSH
 
 | Protocolo | Para qué | ¿Cifrado? |
@@ -88,12 +221,42 @@ ssh usuario@servidor        # abre una sesión remota cifrada
 
 Una **VPN** (*Virtual Private Network*) crea un **túnel cifrado** entre tu equipo y la red de la empresa a través de Internet. Es como tener un cable privado hasta la oficina, aunque estés en casa: todo lo que viaja por el túnel va cifrado y, para la red de la empresa, es como si estuvieras dentro.
 
-```mermaid
-flowchart LR
-    U["💻 Tu portátil<br/>(en casa)"] -->|"túnel cifrado (VPN)"| G["Pasarela VPN<br/>de la empresa"]
-    G --> L["Red interna"]
-    style G fill:#fef9c3,color:#854d0e
-```
+<figure>
+
+<svg width="100%" viewBox="0 0 680 260" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Diagrama de VPN con túnel cifrado</title>
+<desc>Un portátil en casa se conecta mediante un túnel VPN cifrado a través de Internet hasta la pasarela VPN de la empresa, accediendo a la red interna</desc>
+<defs><marker id="arv" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="20" y="80" width="110" height="90" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5"/>
+<text font-size="12" font-family="sans-serif" x="75" y="118" text-anchor="middle" fill="#2C2C2A" font-weight="500">💻 Portátil</text>
+<text font-size="11" font-family="sans-serif" x="75" y="134" text-anchor="middle" fill="#888780">en casa</text>
+<text font-size="11" font-family="sans-serif" x="75" y="150" text-anchor="middle" fill="#185FA5">IP pública</text>
+<rect x="22" y="185" width="106" height="20" rx="4" fill="#185FA5"/>
+<text font-size="11" font-family="sans-serif" x="75" y="199" text-anchor="middle" fill="#E6F1FB">VPN: 10.8.0.2</text>
+<rect x="145" y="68" width="390" height="110" rx="28" fill="none" stroke="#185FA5" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text font-size="12" font-family="sans-serif" x="340" y="90" text-anchor="middle" fill="#185FA5" font-weight="500">🔒 Túnel VPN cifrado</text>
+<text font-size="11" font-family="sans-serif" x="340" y="106" text-anchor="middle" fill="#185FA5">WireGuard / OpenVPN / IPsec</text>
+<ellipse cx="340" cy="148" rx="52" ry="26" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<ellipse cx="318" cy="137" rx="25" ry="17" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<ellipse cx="362" cy="135" rx="27" ry="18" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="340" y="152" text-anchor="middle" fill="#A32D2D">Internet</text>
+<line x1="132" y1="128" x2="285" y2="128" stroke="#185FA5" stroke-width="2" marker-end="url(#arv)"/>
+<line x1="395" y1="148" x2="525" y2="148" stroke="#185FA5" stroke-width="2" marker-end="url(#arv)"/>
+<rect x="537" y="80" width="118" height="90" rx="8" fill="#FAC775" stroke="#BA7517" stroke-width="1.5"/>
+<text font-size="12" font-family="sans-serif" x="596" y="114" text-anchor="middle" fill="#633806" font-weight="500">🔥 Pasarela VPN</text>
+<text font-size="11" font-family="sans-serif" x="596" y="130" text-anchor="middle" fill="#633806">empresa</text>
+<text font-size="11" font-family="sans-serif" x="596" y="148" text-anchor="middle" fill="#412402">10.8.0.1</text>
+<rect x="537" y="192" width="118" height="44" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="1.5"/>
+<text font-size="12" font-family="sans-serif" x="596" y="211" text-anchor="middle" fill="#042C53" font-weight="500">Red interna</text>
+<text font-size="11" font-family="sans-serif" x="596" y="227" text-anchor="middle" fill="#042C53">10.0.0.0/24</text>
+<line x1="596" y1="172" x2="596" y2="190" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arv)"/>
+<rect x="148" y="216" width="370" height="34" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="1"/>
+<text font-size="11" font-family="sans-serif" x="333" y="230" text-anchor="middle" fill="#173404" font-weight="500">✅ El portátil accede a la red interna como si estuviera físicamente en la oficina</text>
+<text font-size="10" font-family="sans-serif" x="333" y="244" text-anchor="middle" fill="#27500A">puede hacer curl http://api:8000 directamente · misma subred virtual que el lab</text>
+</svg>
+
+<figcaption>Una VPN te mete dentro de la red privada de la empresa a través de internet. Por eso si levantaras una VPN hacia la red <code>interna</code> del lab, podrías llamar a la API directamente.</figcaption>
+</figure>
 
 Elementos de una VPN: el **túnel** (el canal cifrado), las **claves** (para cifrar y autenticar los extremos) y las **rutas** (qué tráfico va por el túnel y cuál no). Ejemplos reales: WireGuard, OpenVPN, IPsec.
 
@@ -115,16 +278,54 @@ En una empresa con muchos usuarios y servicios, no tiene sentido que cada servic
     DMZ = zona intermedia; Internet nunca llega directo a la LAN. HTTPS = HTTP + TLS (cifrado + identidad). SSH = terminal remota cifrada (sustituye a Telnet). VPN = túnel cifrado (túnel + claves + rutas). Pasarela = punto único de entrada. AAA = autenticación/autorización/auditoría. RADIUS = autenticación centralizada.
 ## Parte 2 · Laboratorio: acceso seguro a una intranet
 
-Vas a montar la intranet de una empresa pequeña: una **API privada** (FastAPI) con datos de empleados, protegida detrás de una **pasarela Nginx** con **HTTPS**. La API **nunca** se expone directamente a Internet: solo se llega a ella a través de la pasarela. Comprobarás el aislamiento, los códigos HTTP y el cifrado, y automatizarás las pruebas con Python.
+Vas a montar la intranet de una empresa pequeña: una **API privada** (FastAPI) con datos de empleados, protegida detrás de una **pasarela Nginx** con **HTTPS**. La API **nunca** se expone directamente a Internet: solo se llega a ella a través de la pasarela. Comprobarás el aislamiento, los códigos HTTP y el cifrado, y probarás la API con curl y Bruno.
 
-```mermaid
-flowchart LR
-    C["💻 curl / navegador"] -->|"HTTPS :8443"| N["Nginx (pasarela)<br/>DMZ"]
-    N -->|"HTTP interno :8000"| A["API FastAPI<br/>red interna"]
-    C -. "❌ no puede llegar<br/>directo a la API" .-> A
-    style N fill:#fef9c3,color:#854d0e
-    style A fill:#dbeafe,color:#1e3a8a
-```
+<figure>
+
+<svg width="100%" viewBox="0 0 680 350" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Arquitectura Docker del laboratorio UT3</title>
+<desc>Red DMZ con Nginx expuesto en puertos 8080 y 8443, y red interna con la API FastAPI sin puertos publicados, solo accesible desde dentro</desc>
+<defs><marker id="arl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="20" y="130" width="100" height="80" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5"/>
+<text font-size="12" font-family="sans-serif" x="70" y="162" text-anchor="middle" fill="#2C2C2A" font-weight="500">💻 Tu PC</text>
+<text font-size="11" font-family="sans-serif" x="70" y="178" text-anchor="middle" fill="#888780">(anfitrión)</text>
+<text font-size="10" font-family="sans-serif" x="70" y="200" text-anchor="middle" fill="#888780">fuera de Docker</text>
+<line x1="122" y1="158" x2="168" y2="158" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arl)"/>
+<text font-size="10" font-family="sans-serif" x="145" y="150" text-anchor="middle" fill="#185FA5">HTTPS :8443</text>
+<line x1="122" y1="185" x2="168" y2="185" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arl)"/>
+<text font-size="10" font-family="sans-serif" x="145" y="200" text-anchor="middle" fill="#888780">HTTP :8080 → 301</text>
+<rect x="170" y="20" width="210" height="300" rx="12" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text font-size="12" font-family="sans-serif" x="275" y="42" text-anchor="middle" fill="#085041" font-weight="500">red dmz</text>
+<text font-size="10" font-family="sans-serif" x="275" y="58" text-anchor="middle" fill="#085041">expuesta al anfitrión</text>
+<rect x="190" y="100" width="170" height="130" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.5"/>
+<text font-size="12" font-family="sans-serif" x="275" y="124" text-anchor="middle" fill="#04342C" font-weight="500">⚙️ Nginx</text>
+<text font-size="11" font-family="sans-serif" x="275" y="140" text-anchor="middle" fill="#04342C">pasarela HTTPS</text>
+<rect x="195" y="152" width="76" height="20" rx="4" fill="#0F6E56"/>
+<text font-size="10" font-family="sans-serif" x="233" y="166" text-anchor="middle" fill="#E1F5EE">8080:80</text>
+<rect x="279" y="152" width="76" height="20" rx="4" fill="#0F6E56"/>
+<text font-size="10" font-family="sans-serif" x="317" y="166" text-anchor="middle" fill="#E1F5EE">8443:443</text>
+<text font-size="10" font-family="sans-serif" x="275" y="192" text-anchor="middle" fill="#085041">redes: dmz + interna</text>
+<text font-size="10" font-family="sans-serif" x="275" y="208" text-anchor="middle" fill="#085041">puente entre los dos mundos</text>
+<line x1="382" y1="168" x2="438" y2="168" stroke="#0F6E56" stroke-width="2" marker-end="url(#arl)"/>
+<text font-size="10" font-family="sans-serif" x="410" y="158" text-anchor="middle" fill="#085041">proxy_pass</text>
+<text font-size="10" font-family="sans-serif" x="410" y="182" text-anchor="middle" fill="#085041">http://api:8000</text>
+<rect x="440" y="20" width="220" height="300" rx="12" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text font-size="12" font-family="sans-serif" x="550" y="42" text-anchor="middle" fill="#0C447C" font-weight="500">red interna</text>
+<text font-size="10" font-family="sans-serif" x="550" y="58" text-anchor="middle" fill="#0C447C">internal: true · sin salida</text>
+<rect x="458" y="90" width="184" height="150" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="1.5"/>
+<text font-size="12" font-family="sans-serif" x="550" y="116" text-anchor="middle" fill="#042C53" font-weight="500">🐍 FastAPI</text>
+<text font-size="11" font-family="sans-serif" x="550" y="132" text-anchor="middle" fill="#042C53">API privada</text>
+<rect x="463" y="144" width="174" height="20" rx="4" fill="#A32D2D"/>
+<text font-size="10" font-family="sans-serif" x="550" y="158" text-anchor="middle" fill="#FCEBEB">❌ sin ports: → invisible</text>
+<text font-size="10" font-family="sans-serif" x="550" y="182" text-anchor="middle" fill="#185FA5">GET /salud → 200</text>
+<text font-size="10" font-family="sans-serif" x="550" y="198" text-anchor="middle" fill="#185FA5">GET /empleados → 401/200</text>
+<text font-size="10" font-family="sans-serif" x="550" y="214" text-anchor="middle" fill="#042C53">puerto 8000 (interno)</text>
+<line x1="122" y1="290" x2="456" y2="290" stroke="#E24B4A" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arl)"/>
+<text font-size="10" font-family="sans-serif" x="288" y="280" text-anchor="middle" fill="#A32D2D">curl localhost:8000 → Connection refused ❌</text>
+</svg>
+
+<figcaption>Arquitectura del laboratorio: tu PC solo puede hablar con Nginx (que tiene <code>ports:</code>). La API vive en la red <code>interna</code> sin puertos publicados: Nginx es el único que llega a ella, y tú solo llegas a la API a través de Nginx.</figcaption>
+</figure>
 
 !!! tip "Ficheros listos para usar"
     Todo el laboratorio está en la carpeta **`lab/`** del repositorio del curso, con esta estructura. No tienes que copiar nada a mano:
@@ -133,8 +334,6 @@ flowchart LR
     lab/
     ├── compose.yaml              # define servicios y redes
     ├── generar_certificado.sh    # crea el certificado de laboratorio
-    ├── pruebas.py                # pruebas de conectividad en Python
-    ├── requirements-pruebas.txt
     ├── api/                      # la API privada (FastAPI)
     │   ├── app.py
     │   ├── Dockerfile
@@ -339,89 +538,158 @@ Esto es la **segmentación de redes** en acción: la API está en una zona aisla
 
 ### Paso 7 · SSH y VPN: demostración de acceso remoto
 
-La pasarela web protege el acceso a la *aplicación*. Para administrar el *servidor* se usa **SSH**, y para meter todo tu equipo *dentro* de la red de la empresa, una **VPN**.
+La pasarela web protege el acceso a la *aplicación*. Para administrar el *servidor* (entrar en él y ejecutar comandos) se usa **SSH**.
 
-**SSH** (demostración conceptual): conectarte a un servidor sería tan simple como:
+Tienes dos formas de entrar en los contenedores del laboratorio:
 
-```bash title="Terminal (ejemplo)"
-ssh admin@servidor-intranet       # terminal remota cifrada
+#### Forma A · `docker compose exec` (siempre disponible, sin instalar nada)
+
+Es el equivalente directo a SSH pero dentro del ecosistema Docker. Desde la carpeta del lab:
+
+```bash title="Terminal (labs/ud3/lab/)"
+# entrar en el contenedor de Nginx
+docker compose exec nginx bash
+
+# entrar en el contenedor de la API
+docker compose exec api bash
 ```
 
-Todo lo que escribes y recibes va cifrado. Nadie que capture el tráfico (recuerda Scapy, UT2) puede leer tu contraseña ni tus comandos, al contrario que con el antiguo Telnet.
+Una vez dentro verás el prompt del contenedor (`root@<id>:/#`). Puedes explorar el sistema de ficheros, ver procesos, leer logs:
+
+```bash title="Dentro del contenedor nginx"
+cat /etc/nginx/nginx.conf        # ver la configuración de Nginx
+ls /etc/nginx/certs/             # ver el certificado generado
+nginx -t                         # comprobar que la config es válida
+exit                             # salir del contenedor
+```
+
+#### Forma B · SSH real (instalar el servidor en el contenedor)
+
+Si quieres practicar SSH de verdad — ver cómo se establece la conexión, usar claves, etc. — puedes instalarlo en el contenedor de Nginx. Esto requiere modificar su `Dockerfile`:
+
+```dockerfile title="nginx/Dockerfile (versión con SSH)"
+FROM nginx:1.27-alpine
+
+# instalar OpenSSH
+RUN apk add --no-cache openssh \
+    && echo "root:laboratorio" | chpasswd \
+    && sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && ssh-keygen -A
+
+# arrancar SSH y Nginx juntos
+CMD sh -c "sshd && nginx -g 'daemon off;'"
+```
+
+Y añadir el puerto 22 en `compose.yaml`:
+
+```yaml title="compose.yaml (fragmento)"
+  nginx:
+    build: ./nginx
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "2222:22"     # SSH: tu PC:2222 -> contenedor:22
+```
+
+Reconstruye y levanta:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Ahora puedes conectarte por SSH de verdad:
+
+```bash title="Terminal"
+ssh root@localhost -p 2222
+# contraseña: laboratorio
+```
+
+Verás el mismo prompt que con `exec`, pero ahora la conexión va por el **protocolo SSH**: cifrada, autenticada, exactamente igual que cuando un administrador entra en un servidor de producción.
+
+!!! note "¿Cuándo usar cada una?"
+    En clase y en el lab usa la **Forma A** (`docker compose exec`): es más rápida y no requiere cambios. La **Forma B** es útil cuando quieres ver SSH en acción como protocolo — por ejemplo, para capturar el handshake con Wireshark o para practicar la autenticación con claves en vez de contraseña.
 
 **VPN** (idea): si levantaras un servidor WireGuard en la DMZ, tu portátil establecería un túnel cifrado y entraría en la red `interna` como si estuviera físicamente en la oficina — entonces **sí** podrías llamar a `http://api:8000` directamente, porque estarías *dentro*. La VPN te convierte en un miembro más de la red interna, de forma segura.
 
-### Paso 8 · Automatizar las pruebas con Python
+### Paso 8 · Probar la API con curl y Bruno
 
-Hacer las pruebas a mano con `curl` está bien para aprender, pero en la práctica se **automatizan**. Este script repite todas las comprobaciones y genera un informe:
+Tienes dos herramientas para explorar la API: **curl** desde la terminal (rápido, siempre disponible) y **Bruno** como cliente gráfico open source, sin cuenta ni nube, con las colecciones guardadas como ficheros en tu repositorio.
 
-```python title="lab/pruebas.py"
-import json
-import requests
+#### Con curl
 
-# Atacamos SIEMPRE a la pasarela (Nginx), nunca a la API directamente.
-BASE = "https://localhost:8443"
-TOKEN = {"X-Token": "secreto-de-laboratorio"}
+Ya usaste curl en el Paso 5. Aquí tienes todos los casos de prueba juntos:
 
-# Certificado autofirmado de laboratorio: por eso verify=False (solo en pruebas).
-requests.packages.urllib3.disable_warnings()
+```bash title="Terminal — repaso completo de endpoints"
+# 1) Salud del servicio: público, sin token
+curl -k https://localhost:8443/salud
+# → {"estado":"ok"}
 
-PRUEBAS = [
-    ("Salud del servicio (sin token)",         lambda: requests.get(f"{BASE}/salud", verify=False),                 200),
-    ("Listar empleados SIN token (denegado)",  lambda: requests.get(f"{BASE}/empleados", verify=False),             401),
-    ("Listar empleados CON token",             lambda: requests.get(f"{BASE}/empleados", headers=TOKEN, verify=False), 200),
-    ("Empleado existente CON token",           lambda: requests.get(f"{BASE}/empleados/1", headers=TOKEN, verify=False), 200),
-    ("Empleado inexistente CON token (404)",   lambda: requests.get(f"{BASE}/empleados/99", headers=TOKEN, verify=False), 404),
-]
+# 2) Listar empleados SIN token: debe denegar
+curl -k -i https://localhost:8443/empleados
+# → HTTP/2 401
 
-def ejecutar() -> list[dict]:
-    resultados = []
-    for descripcion, llamada, esperado in PRUEBAS:
-        try:
-            codigo = llamada().status_code
-        except requests.RequestException:
-            codigo = None
-        resultados.append({
-            "prueba": descripcion,
-            "esperado": esperado,
-            "obtenido": codigo,
-            "resultado": "OK" if codigo == esperado else "FALLO",
-        })
-    return resultados
+# 3) Listar empleados CON token
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
 
-if __name__ == "__main__":
-    resultados = ejecutar()
-    print(f"{'PRUEBA':42} {'ESPERA':7} {'OBTIENE':8} RESULTADO")
-    print("-" * 70)
-    for r in resultados:
-        print(f"{r['prueba']:42} {r['esperado']:<7} {str(r['obtenido']):<8} {r['resultado']}")
-    aciertos = sum(1 for r in resultados if r["resultado"] == "OK")
-    print("-" * 70)
-    print(f"Total: {aciertos}/{len(resultados)} pruebas correctas")
-    with open("informe.json", "w", encoding="utf-8") as f:
-        json.dump(resultados, f, indent=2, ensure_ascii=False)
-    print("Informe guardado en informe.json")
+# 4) Empleado concreto CON token
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/1
+
+# 5) Empleado que no existe
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/99
+# → HTTP 404
 ```
 
-Ejecútalo (con el laboratorio levantado):
+Para ver solo el código de respuesta de cada petición:
 
-```bash title="Terminal (dentro de lab/)"
-pip install -r requirements-pruebas.txt
-python pruebas.py
+```bash title="Terminal"
+curl -k -s -o /dev/null -w "%{http_code}\n" https://localhost:8443/salud
+curl -k -s -o /dev/null -w "%{http_code}\n" https://localhost:8443/empleados
+curl -k -s -o /dev/null -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
 ```
 
-```text title="Salida esperada"
-PRUEBA                                     ESPERA  OBTIENE  RESULTADO
-----------------------------------------------------------------------
-Salud del servicio (sin token)             200     200      OK
-Listar empleados SIN token (denegado)      401     401      OK
-Listar empleados CON token                 200     200      OK
-Empleado existente CON token               200     200      OK
-Empleado inexistente CON token (404)       404     404      OK
-----------------------------------------------------------------------
-Total: 5/5 pruebas correctas
-Informe guardado en informe.json
+```text
+200
+401
+200
 ```
+
+#### Con Bruno
+
+**Bruno** ([usebruno.com](https://www.usebruno.com)) es un cliente API gráfico open source: las colecciones se guardan como ficheros `.bru` junto a tu código, sin cuenta y sin nube. Es la herramienta que usarás en proyectos reales para explorar, documentar y compartir APIs.
+
+**Instalar Bruno:**
+
+```bash
+# Linux (snap)
+snap install bruno
+
+# macOS
+brew install bruno
+
+# Windows: descarga el instalador desde usebruno.com
+```
+
+**Crear la colección del laboratorio:**
+
+1. Abre Bruno → **Create Collection** → nombre `intranet-lab` → guárdala en `lab/bruno/`
+2. En **Environments** → **Configure**, añade la variable `base_url = https://localhost:8443`
+3. Añade las peticiones con **New Request**:
+
+| Nombre | Método | URL | Cabecera |
+|---|---|---|---|
+| Salud | GET | `{{base_url}}/salud` | — |
+| Empleados sin token | GET | `{{base_url}}/empleados` | — |
+| Empleados con token | GET | `{{base_url}}/empleados` | `X-Token: secreto-de-laboratorio` |
+| Empleado por id | GET | `{{base_url}}/empleados/1` | `X-Token: secreto-de-laboratorio` |
+| Empleado inexistente | GET | `{{base_url}}/empleados/99` | `X-Token: secreto-de-laboratorio` |
+
+4. En **Settings** de la colección desactiva la verificación TLS: `SSL/TLS → Verify SSL: off` (certificado autofirmado).
+
+Pulsa **Run** en cada petición y verás el código y el JSON resaltado. Con **Run Collection** ejecutas las cinco de golpe.
+
+!!! tip "curl vs Bruno"
+    **curl** es imprescindible: está en cualquier servidor, en cualquier contenedor, y en el examen. **Bruno** es lo que usarás en el trabajo para explorar APIs nuevas, compartir las peticiones con el equipo y mantener la documentación junto al código.
 
 **Al terminar, apaga el laboratorio:**
 
@@ -430,7 +698,7 @@ docker compose down
 ```
 
 !!! success "🏅 Laboratorio completado"
-    Has montado una intranet con separación de zonas (DMZ/interna), una pasarela que obliga a HTTPS, una API privada que nadie alcanza directamente, y pruebas automatizadas que lo demuestran. Eso es seguridad perimetral real.
+    Has montado una intranet con separación de zonas (DMZ/interna), una pasarela que obliga a HTTPS, una API privada que nadie alcanza directamente, y la has probado con las herramientas reales del sector. Eso es seguridad perimetral aplicada.
 
 **Errores habituales.**
 
@@ -439,7 +707,6 @@ docker compose down
 | `curl` da error de certificado | Certificado autofirmado | Usa `-k` (solo en laboratorio) |
 | La API responde en `localhost:8000` | Publicaste su puerto por error | La API **no** debe tener `ports` en el compose |
 | `502 Bad Gateway` en Nginx | La API aún no había arrancado | Espera unos segundos o revisa `depends_on` |
-| `pruebas.py` falla al conectar | El laboratorio no está levantado | `docker compose up --build -d` primero |
 ### 🔍 Comprueba tú mismo
 
 Estas preguntas y experimentos nacen directamente del laboratorio. Algunas te piden que **pruebes algo** con el laboratorio levantado; otras que **pienses** sobre lo que viste.
@@ -510,16 +777,7 @@ Ejecutaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*. 
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La API no tiene <code>ports:</code> en el compose, así que no existe ningún puente entre la red Docker y tu máquina. Es el aislamiento funcionando correctamente.</details>
 
-**2.** Ejecutaste este comando y obtuviste el código de la primera línea:
-
-```bash
-curl -k -o /dev/null -s -w "%{http_code}\n" https://localhost:8443/empleados
-```
-```text
-401
-```
-
-¿Qué indica ese código?
+**2.** Accediste al endpoint `/empleados` sin incluir ningún token en la petición. El servidor respondió con el código **401**. ¿Qué significa?
 
 - A) El recurso no existe
 - B) La petición no está autenticada: falta o es incorrecto el token
@@ -528,16 +786,7 @@ curl -k -o /dev/null -s -w "%{http_code}\n" https://localhost:8443/empleados
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 401 significa "no autorizado": la API exige la cabecera <code>X-Token</code> y no se envió.</details>
 
-**3.** Al añadir el token la respuesta cambió:
-
-```bash
-curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
-```
-```text
-200
-```
-
-¿Qué indica el código **200**?
+**3.** Al incluir la cabecera `X-Token: secreto-de-laboratorio` en la misma petición a `/empleados`, el servidor respondió con **200**. ¿Qué significa ese cambio de 401 a 200?
 
 - A) Error del servidor
 - B) Petición correcta, recurso devuelto
@@ -546,16 +795,7 @@ curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio"
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 200 OK es la respuesta estándar de éxito: la petición fue correcta y el servidor devuelve lo que se pidió.</details>
 
-**4.** Con token válido pediste un id que no existe:
-
-```bash
-curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/99
-```
-```text
-404
-```
-
-¿Qué indica ese código?
+**4.** Con token válido pediste `/empleados/99`, un empleado que no existe en la base de datos. El servidor respondió **404**. ¿Qué indica ese código y qué lo distingue del 401?
 
 - A) El token es incorrecto
 - B) El empleado con id 99 no existe en la base de datos
@@ -646,15 +886,7 @@ networks:
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Nginx es la pasarela: recibe tráfico del exterior (red dmz) y lo reenvía a la API (red interna). La API no necesita estar en la dmz porque nadie debe llegar a ella directamente.</details>
 
-**10.** En `nginx.conf` Nginx reenvía las peticiones así:
-
-```nginx
-location / {
-    proxy_pass http://api:8000;
-}
-```
-
-¿Por qué funciona usar el nombre `api` en vez de una IP?
+**10.** En la configuración de Nginx, la pasarela reenvía las peticiones usando el nombre `api` para localizar el contenedor de la API. ¿Por qué funciona ese nombre dentro de la red Docker aunque no sea una IP real?
 
 - A) `api` es una IP pública fija
 - B) Docker resuelve el nombre `api` dentro de la red interna como la dirección del contenedor
@@ -672,17 +904,7 @@ location / {
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La DMZ es la "recepción": aloja lo que debe ser accesible desde fuera sin dar acceso directo a lo valioso de dentro. En el lab, Nginx vive ahí.</details>
 
-**12.** En `app.py`, el endpoint de datos comprueba esto:
-
-```python
-@app.get("/empleados")
-def listar(x_token: str = Header(default="")):
-    if x_token != TOKEN_VALIDO:
-        raise HTTPException(status_code=401, detail="token no válido")
-    return list(EMPLEADOS.values())
-```
-
-¿Qué parte de las **AAA** implementa este código?
+**12.** El endpoint `/empleados` de la API comprueba una cabecera `X-Token` antes de devolver los datos. Si falta o es incorrecta, devuelve 401. ¿Qué parte de las **AAA** (autenticación, autorización, auditoría) implementa este mecanismo?
 
 - A) El certificado SSL
 - B) La cabecera `X-Token` que la API comprueba en cada petición
@@ -691,19 +913,12 @@ def listar(x_token: str = Header(default="")):
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La autenticación responde a "¿quién eres?". En el lab, la API verifica el token antes de devolver datos: si no está o es incorrecto, devuelve 401.</details>
 
-**13.** `pruebas.py` define el destino así:
+**13.** Al probar la API con curl usas siempre `https://localhost:8443` y nunca `http://localhost:8000`. ¿Por qué?
 
-```python
-BASE = "https://localhost:8443"   # la pasarela
-
-PRUEBAS = [
-    ("Salud del servicio",  lambda: requests.get(f"{BASE}/salud", verify=False), 200),
-    ("Sin token (denegado)",lambda: requests.get(f"{BASE}/empleados", verify=False), 401),
-    ...
-]
+```bash
+curl -k https://localhost:8443/salud           # correcto
+curl http://localhost:8000/salud              # Connection refused
 ```
-
-¿Por qué todas las pruebas apuntan a `localhost:8443` (Nginx) y no a `localhost:8000` (la API)?
 
 - A) Por casualidad; cualquiera de las dos funcionaría
 - B) Prueba el sistema como lo haría un cliente real: pasando por la pasarela, no directamente a la API
@@ -765,17 +980,7 @@ Si levantaras una **VPN** que te conectase a esa red `interna`, ¿qué cambiarí
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La pasarela concentra el control: autenticación, cifrado TLS, registro de accesos. La API no sabe nada de todo eso; se lo delega a Nginx.</details>
 
-**19.** Para el laboratorio generaste el certificado con este comando:
-
-```bash
-openssl req -x509 -newkey rsa:2048 -nodes \
-    -keyout nginx/certs/key.pem \
-    -out nginx/certs/cert.pem \
-    -days 365 \
-    -subj "/CN=intranet.local"
-```
-
-¿Qué tipo de certificado crea la opción `-x509` de este comando?
+**19.** Para el laboratorio generaste el certificado con `openssl` usando la opción `-x509`. El resultado es un certificado que tiene el mismo emisor que el sujeto. ¿Qué tipo de certificado es y por qué los navegadores no lo aceptan por defecto?
 
 - A) Un certificado emitido por una CA reconocida
 - B) Un certificado autofirmado, válido para laboratorio pero no para producción
@@ -784,20 +989,7 @@ openssl req -x509 -newkey rsa:2048 -nodes \
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>-x509</code> genera un certificado autofirmado: el propio sujeto lo firma, sin que ninguna CA lo valide. Perfecto para pruebas, inaceptable para producción.</details>
 
-**20.** En `app.py`:
-
-```python
-@app.get("/salud")
-def salud():
-    return {"estado": "ok"}   # sin comprobación de token
-
-@app.get("/empleados")
-def listar(x_token: str = Header(default="")):
-    if x_token != TOKEN_VALIDO:
-        raise HTTPException(status_code=401, detail="no autorizado")
-```
-
-¿Por qué tiene sentido que `/salud` sea público y `/empleados` requiera token?
+**20.** La API tiene un endpoint `/salud` que responde sin pedir ningún token, y un endpoint `/empleados` que sí lo exige. ¿Por qué es buena práctica que el endpoint de salud sea público?
 
 - A) Para evitar usar el certificado
 - B) Para que sistemas de monitorización puedan verificar que el servicio está vivo sin necesitar credenciales
