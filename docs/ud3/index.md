@@ -5,7 +5,7 @@
 | **Resultado de aprendizaje** | RA3 · Implanta seguridad perimetral y acceso remoto |
 | **Trimestre** | 2.º |
 | **Duración** | 14 horas |
-| **Herramientas** | Docker Compose · FastAPI · Nginx · `curl` · Bruno |
+| **Herramientas** | Docker Compose · FastAPI · Nginx · `curl` · SSH |
 
 El **perímetro** de una red es su frontera con el exterior. Esta unidad trata de cómo se protege esa frontera (cortafuegos, DMZ, segmentación) y de cómo se permite el **acceso remoto seguro** (protocolos cifrados, pasarelas, VPN). La teoría es breve y va directa a la práctica: construirás **un único laboratorio** que monta la intranet de una empresa pequeña, con una API privada detrás de una pasarela, y comprobarás tú mismo por qué está protegida.
 
@@ -278,7 +278,7 @@ En una empresa con muchos usuarios y servicios, no tiene sentido que cada servic
     DMZ = zona intermedia; Internet nunca llega directo a la LAN. HTTPS = HTTP + TLS (cifrado + identidad). SSH = terminal remota cifrada (sustituye a Telnet). VPN = túnel cifrado (túnel + claves + rutas). Pasarela = punto único de entrada. AAA = autenticación/autorización/auditoría. RADIUS = autenticación centralizada.
 ## Parte 2 · Laboratorio: acceso seguro a una intranet
 
-Vas a montar la intranet de una empresa pequeña: una **API privada** (FastAPI) con datos de empleados, protegida detrás de una **pasarela Nginx** con **HTTPS**. La API **nunca** se expone directamente a Internet: solo se llega a ella a través de la pasarela. Comprobarás el aislamiento, los códigos HTTP y el cifrado, y probarás la API con curl y Bruno.
+Vas a montar la intranet de una empresa pequeña: una **API privada** (FastAPI) con datos de empleados, protegida detrás de una **pasarela Nginx** con **HTTPS**. La API **nunca** se expone directamente a Internet: solo se llega a ella a través de la pasarela. Comprobarás el aislamiento, los códigos HTTP, el cifrado y el acceso SSH.
 
 <figure>
 
@@ -536,186 +536,57 @@ docker compose exec nginx wget -qO- http://api:8000/salud
 
 Esto es la **segmentación de redes** en acción: la API está en una zona aislada (`internal: true`, sin salida a Internet) y solo la pasarela, que hace de puente controlado, puede llegar a ella.
 
-### Paso 7 · SSH y VPN: demostración de acceso remoto
+### Paso 7 · Acceso remoto con SSH
 
-La pasarela web protege el acceso a la *aplicación*. Para administrar el *servidor* (entrar en él y ejecutar comandos) se usa **SSH**.
-
-Tienes dos formas de entrar en los contenedores del laboratorio:
-
-#### Forma A · `docker compose exec` (siempre disponible, sin instalar nada)
-
-Es el equivalente directo a SSH pero dentro del ecosistema Docker. Desde la carpeta del lab:
-
-```bash title="Terminal (labs/ud3/lab/)"
-# entrar en el contenedor de Nginx
-docker compose exec nginx bash
-
-# entrar en el contenedor de la API
-docker compose exec api bash
-```
-
-Una vez dentro verás el prompt del contenedor (`root@<id>:/#`). Puedes explorar el sistema de ficheros, ver procesos, leer logs:
-
-```bash title="Dentro del contenedor nginx"
-cat /etc/nginx/nginx.conf        # ver la configuración de Nginx
-ls /etc/nginx/certs/             # ver el certificado generado
-nginx -t                         # comprobar que la config es válida
-exit                             # salir del contenedor
-```
-
-#### Forma B · SSH real (instalar el servidor en el contenedor)
-
-Si quieres practicar SSH de verdad — ver cómo se establece la conexión, usar claves, etc. — puedes instalarlo en el contenedor de Nginx. Esto requiere modificar su `Dockerfile`:
-
-```dockerfile title="nginx/Dockerfile (versión con SSH)"
-FROM nginx:1.27-alpine
-
-# instalar OpenSSH y prepararlo
-RUN apk add --no-cache openssh \
-    && ssh-keygen -A \
-    && echo "root:laboratorio" | chpasswd \
-    && sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config \
-    && sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# arrancar sshd primero, luego nginx en primer plano
-CMD ["/bin/sh", "-c", "/usr/sbin/sshd && nginx -g 'daemon off;'"]
-```
-
-Tres detalles importantes de este Dockerfile:
-
-- **`ssh-keygen -A`** genera las claves del host durante la construcción de la imagen. Sin esto, `sshd` arranca pero rechaza las conexiones inmediatamente (*Connection reset*).
-- **`PasswordAuthentication yes`** activa el login con contraseña. En Alpine viene desactivado por defecto — sin esta línea el SSH acepta la conexión pero la corta al pedir credenciales.
-- **`CMD` con array** (`["/bin/sh", "-c", "..."]`): arranca `sshd` en segundo plano y luego nginx en primer plano. Si nginx muere, el contenedor para; si solo muere sshd, nginx sigue.
-
-Y añadir el puerto 22 en `compose.yaml`:
-
-```yaml title="compose.yaml (fragmento)"
-  nginx:
-    build: ./nginx
-    ports:
-      - "8080:80"
-      - "8443:443"
-      - "2222:22"     # SSH: tu PC:2222 -> contenedor:22
-```
-
-Reconstruye y levanta:
-
-```bash
-docker compose down
-docker compose up -d --build
-```
-
-Ahora puedes conectarte por SSH de verdad:
+El laboratorio ya tiene SSH instalado en el contenedor nginx. Conéctate:
 
 ```bash title="Terminal"
 ssh root@localhost -p 2222
 # contraseña: laboratorio
 ```
 
-Verás el mismo prompt que con `exec`, pero ahora la conexión va por el **protocolo SSH**: cifrada, autenticada, exactamente igual que cuando un administrador entra en un servidor de producción.
+Una vez dentro puedes inspeccionar el servidor:
 
-!!! note "¿Cuándo usar cada una?"
-    En clase y en el lab usa la **Forma A** (`docker compose exec`): es más rápida y no requiere cambios. La **Forma B** es útil cuando quieres ver SSH en acción como protocolo — por ejemplo, para capturar el handshake con Wireshark o para practicar la autenticación con claves en vez de contraseña.
-
-**VPN** (idea): si levantaras un servidor WireGuard en la DMZ, tu portátil establecería un túnel cifrado y entraría en la red `interna` como si estuviera físicamente en la oficina — entonces **sí** podrías llamar a `http://api:8000` directamente, porque estarías *dentro*. La VPN te convierte en un miembro más de la red interna, de forma segura.
-
-### Paso 8 · Probar la API con curl y Bruno
-
-Tienes dos herramientas para explorar la API: **curl** desde la terminal (rápido, siempre disponible) y **Bruno** como cliente gráfico open source, sin cuenta ni nube, con las colecciones guardadas como ficheros en tu repositorio.
-
-#### Con curl
-
-Ya usaste curl en el Paso 5. Aquí tienes todos los casos de prueba juntos:
-
-```bash title="Terminal — repaso completo de endpoints"
-# 1) Salud del servicio: público, sin token
-curl -k https://localhost:8443/salud
-# → {"estado":"ok"}
-
-# 2) Listar empleados SIN token: debe denegar
-curl -k -i https://localhost:8443/empleados
-# → HTTP/2 401
-
-# 3) Listar empleados CON token
-curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
-
-# 4) Empleado concreto CON token
-curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/1
-
-# 5) Empleado que no existe
-curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/99
-# → HTTP 404
+```bash title="Dentro del contenedor nginx"
+cat /etc/nginx/nginx.conf
+ls /etc/nginx/certs/
+nginx -t
+exit
 ```
 
-Para ver solo el código de respuesta de cada petición:
+**VPN** — si levantaras un servidor WireGuard en la DMZ, tu equipo entraría en la red `interna` y podrías llamar a `http://api:8000` directamente, como hace nginx. Eso es lo que hace una VPN: te convierte en un miembro más de la red privada.
+
+### Paso 8 · Probar los endpoints con curl
 
 ```bash title="Terminal"
+# salud: público, sin token
+curl -k https://localhost:8443/salud
+
+# listar empleados sin token → 401
+curl -k -i https://localhost:8443/empleados
+
+# listar empleados con token → 200
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
+
+# empleado concreto → 200
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/1
+
+# empleado inexistente → 404
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/99
+
+# solo el código de respuesta
 curl -k -s -o /dev/null -w "%{http_code}\n" https://localhost:8443/salud
-curl -k -s -o /dev/null -w "%{http_code}\n" https://localhost:8443/empleados
-curl -k -s -o /dev/null -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
 ```
 
-```text
-200
-401
-200
-```
-
-#### Con Bruno
-
-**Bruno** ([usebruno.com](https://www.usebruno.com)) es un cliente API gráfico open source: las colecciones se guardan como ficheros `.bru` junto a tu código, sin cuenta y sin nube. Es la herramienta que usarás en proyectos reales para explorar, documentar y compartir APIs.
-
-**Instalar Bruno:**
+**Apaga el laboratorio:**
 
 ```bash
-# Linux (snap)
-snap install bruno
-
-# macOS
-brew install bruno
-
-# Windows: descarga el instalador desde usebruno.com
-```
-
-**Crear la colección del laboratorio:**
-
-1. Abre Bruno → **Create Collection** → nombre `intranet-lab` → guárdala en `lab/bruno/`
-2. En **Environments** → **Configure**, añade la variable `base_url = https://localhost:8443`
-3. Añade las peticiones con **New Request**:
-
-| Nombre | Método | URL | Cabecera |
-|---|---|---|---|
-| Salud | GET | `{{base_url}}/salud` | — |
-| Empleados sin token | GET | `{{base_url}}/empleados` | — |
-| Empleados con token | GET | `{{base_url}}/empleados` | `X-Token: secreto-de-laboratorio` |
-| Empleado por id | GET | `{{base_url}}/empleados/1` | `X-Token: secreto-de-laboratorio` |
-| Empleado inexistente | GET | `{{base_url}}/empleados/99` | `X-Token: secreto-de-laboratorio` |
-
-4. En **Settings** de la colección desactiva la verificación TLS: `SSL/TLS → Verify SSL: off` (certificado autofirmado).
-
-Pulsa **Run** en cada petición y verás el código y el JSON resaltado. Con **Run Collection** ejecutas las cinco de golpe.
-
-!!! tip "curl vs Bruno"
-    **curl** es imprescindible: está en cualquier servidor, en cualquier contenedor, y en el examen. **Bruno** es lo que usarás en el trabajo para explorar APIs nuevas, compartir las peticiones con el equipo y mantener la documentación junto al código.
-
-**Al terminar, apaga el laboratorio:**
-
-```bash title="Terminal (dentro de lab/)"
 docker compose down
 ```
 
 !!! success "🏅 Laboratorio completado"
-    Has montado una intranet con separación de zonas (DMZ/interna), una pasarela que obliga a HTTPS, una API privada que nadie alcanza directamente, y la has probado con las herramientas reales del sector. Eso es seguridad perimetral aplicada.
+    Intranet con DMZ, pasarela HTTPS, API privada, SSH y aislamiento de redes. Seguridad perimetral aplicada.
 
-**Errores habituales.**
-
-| Síntoma | Causa | Solución |
-|---|---|---|
-| `curl` da error de certificado | Certificado autofirmado | Usa `-k` (solo en laboratorio) |
-| La API responde en `localhost:8000` | Publicaste su puerto por error | La API **no** debe tener `ports` en el compose |
-| `502 Bad Gateway` en Nginx | La API aún no había arrancado | Espera unos segundos o revisa `depends_on` |
 ### 🔍 Comprueba tú mismo
 
 Estas preguntas y experimentos nacen directamente del laboratorio. Algunas te piden que **pruebes algo** con el laboratorio levantado; otras que **pienses** sobre lo que viste.
