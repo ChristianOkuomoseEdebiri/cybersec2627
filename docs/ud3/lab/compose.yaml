@@ -4,7 +4,6 @@ services:
     ports:
       - "8080:80"
       - "8443:443"
-      - "2222:22"
     volumes:
       - ./nginx/certs:/etc/nginx/certs:ro
     networks:

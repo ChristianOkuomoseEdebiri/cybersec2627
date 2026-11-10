@@ -5,7 +5,7 @@
 | **Resultado de aprendizaje** | RA3 · Implanta seguridad perimetral y acceso remoto |
 | **Trimestre** | 2.º |
 | **Duración** | 14 horas |
-| **Herramientas** | Docker Compose · FastAPI · Nginx · `curl` · SSH |
+| **Herramientas** | Docker Compose · FastAPI · Nginx · `curl` |
 
 El **perímetro** de una red es su frontera con el exterior. Esta unidad trata de cómo se protege esa frontera (cortafuegos, DMZ, segmentación) y de cómo se permite el **acceso remoto seguro** (protocolos cifrados, pasarelas, VPN). La teoría es breve y va directa a la práctica: construirás **un único laboratorio** que monta la intranet de una empresa pequeña, con una API privada detrás de una pasarela, y comprobarás tú mismo por qué está protegida.
 
@@ -278,7 +278,7 @@ En una empresa con muchos usuarios y servicios, no tiene sentido que cada servic
     DMZ = zona intermedia; Internet nunca llega directo a la LAN. HTTPS = HTTP + TLS (cifrado + identidad). SSH = terminal remota cifrada (sustituye a Telnet). VPN = túnel cifrado (túnel + claves + rutas). Pasarela = punto único de entrada. AAA = autenticación/autorización/auditoría. RADIUS = autenticación centralizada.
 ## Parte 2 · Laboratorio: acceso seguro a una intranet
 
-Vas a montar la intranet de una empresa pequeña: una **API privada** (FastAPI) con datos de empleados, protegida detrás de una **pasarela Nginx** con **HTTPS**. La API **nunca** se expone directamente a Internet: solo se llega a ella a través de la pasarela. Comprobarás el aislamiento, los códigos HTTP, el cifrado y el acceso SSH.
+Vas a montar la intranet de una empresa pequeña: una **API privada** (FastAPI) con datos de empleados, protegida detrás de una **pasarela Nginx** con **HTTPS**. La API **nunca** se expone directamente a Internet: solo se llega a ella a través de la pasarela. Comprobarás el aislamiento, los códigos HTTP y el cifrado.
 
 <figure>
 
@@ -536,23 +536,21 @@ docker compose exec nginx wget -qO- http://api:8000/salud
 
 Esto es la **segmentación de redes** en acción: la API está en una zona aislada (`internal: true`, sin salida a Internet) y solo la pasarela, que hace de puente controlado, puede llegar a ella.
 
-### Paso 7 · Acceso remoto con SSH
+### Paso 7 · SSH y VPN: acceso remoto seguro
 
-El laboratorio ya tiene SSH instalado en el contenedor nginx. Conéctate:
+**SSH** (*Secure Shell*) es el protocolo estándar para administrar un servidor de forma remota. Todo lo que escribes viaja cifrado — al contrario que Telnet, que enviaba contraseñas en claro.
 
-```bash title="Terminal"
-ssh root@localhost -p 2222
-# contraseña: laboratorio
+Conectarse a un servidor real es tan simple como:
+
+```bash title="Ejemplo — servidor real (no el lab)"
+ssh usuario@servidor
+ssh usuario@192.168.1.10
+ssh usuario@servidor -p 2222    # si usa un puerto distinto al 22
 ```
 
-Una vez dentro puedes inspeccionar el servidor:
+El servidor pide contraseña (o clave privada) y abre una terminal remota. Desde ahí puedes hacer cualquier cosa como si estuvieras físicamente delante.
 
-```bash title="Dentro del contenedor nginx"
-cat /etc/nginx/nginx.conf
-ls /etc/nginx/certs/
-nginx -t
-exit
-```
+En el laboratorio usamos `docker compose exec nginx sh` para entrar en el contenedor — es el equivalente directo, sin necesitar un servidor SSH instalado.
 
 **VPN** — si levantaras un servidor WireGuard en la DMZ, tu equipo entraría en la red `interna` y podrías llamar a `http://api:8000` directamente, como hace nginx. Eso es lo que hace una VPN: te convierte en un miembro más de la red privada.
 
@@ -657,7 +655,13 @@ Ejecutaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*. 
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La API no tiene <code>ports:</code> en el compose, así que no existe ningún puente entre la red Docker y tu máquina. Es el aislamiento funcionando correctamente.</details>
 
-**2.** Accediste al endpoint `/empleados` sin incluir ningún token en la petición. El servidor respondió con el código **401**. ¿Qué significa?
+**2.** En el Paso 5 ejecutaste esto y obtuviste 401:
+
+```bash
+curl -k https://localhost:8443/empleados
+```
+
+¿Qué significa el código 401 en este contexto?
 
 - A) El recurso no existe
 - B) La petición no está autenticada: falta o es incorrecto el token
@@ -666,7 +670,13 @@ Ejecutaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*. 
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 401 significa "no autorizado": la API exige la cabecera <code>X-Token</code> y no se envió.</details>
 
-**3.** Al incluir la cabecera `X-Token: secreto-de-laboratorio` en la misma petición a `/empleados`, el servidor respondió con **200**. ¿Qué significa ese cambio de 401 a 200?
+**3.** Sin token obtenías 401. Al añadir la cabecera el servidor respondió 200:
+
+```bash
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados
+```
+
+¿Qué explica ese cambio de 401 a 200?
 
 - A) Error del servidor
 - B) Petición correcta, recurso devuelto
@@ -675,7 +685,14 @@ Ejecutaste `curl http://localhost:8000/salud` y obtuviste *Connection refused*. 
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> HTTP 200 OK es la respuesta estándar de éxito: la petición fue correcta y el servidor devuelve lo que se pidió.</details>
 
-**4.** Con token válido pediste `/empleados/99`, un empleado que no existe en la base de datos. El servidor respondió **404**. ¿Qué indica ese código y qué lo distingue del 401?
+**4.** Con token válido pediste un empleado que no existe:
+
+```bash
+curl -k -H "X-Token: secreto-de-laboratorio" https://localhost:8443/empleados/99
+# → 404
+```
+
+¿Qué indica el 404 y en qué se diferencia del 401 que obtenías sin token?
 
 - A) El token es incorrecto
 - B) El empleado con id 99 no existe en la base de datos
@@ -766,7 +783,15 @@ networks:
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Nginx es la pasarela: recibe tráfico del exterior (red dmz) y lo reenvía a la API (red interna). La API no necesita estar en la dmz porque nadie debe llegar a ella directamente.</details>
 
-**10.** En la configuración de Nginx, la pasarela reenvía las peticiones usando el nombre `api` para localizar el contenedor de la API. ¿Por qué funciona ese nombre dentro de la red Docker aunque no sea una IP real?
+**10.** En el `nginx.conf` que configuraste en el Paso 4:
+
+```nginx
+location / {
+    proxy_pass http://api:8000;
+}
+```
+
+¿Por qué funciona usar el nombre `api` en vez de una IP?
 
 - A) `api` es una IP pública fija
 - B) Docker resuelve el nombre `api` dentro de la red interna como la dirección del contenedor
@@ -784,7 +809,13 @@ networks:
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La DMZ es la "recepción": aloja lo que debe ser accesible desde fuera sin dar acceso directo a lo valioso de dentro. En el lab, Nginx vive ahí.</details>
 
-**12.** El endpoint `/empleados` de la API comprueba una cabecera `X-Token` antes de devolver los datos. Si falta o es incorrecta, devuelve 401. ¿Qué parte de las **AAA** (autenticación, autorización, auditoría) implementa este mecanismo?
+**12.** La API exige esta cabecera para acceder a los datos:
+
+```
+X-Token: secreto-de-laboratorio
+```
+
+Sin ella devuelve 401. ¿Qué parte de las **AAA** implementa este mecanismo?
 
 - A) El certificado SSL
 - B) La cabecera `X-Token` que la API comprueba en cada petición
@@ -851,7 +882,18 @@ Si levantaras una **VPN** que te conectase a esa red `interna`, ¿qué cambiarí
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> RADIUS permite que todos los servicios pregunten a un único servidor de autenticación. Alta, baja o cambio de contraseña se hace en un solo sitio.</details>
 
-**18.** ¿Qué significa en el lab que Nginx haga de **pasarela**?
+**18.** En el `compose.yaml` del Paso 1, solo Nginx tiene `ports:` publicados. La API no tiene ninguno:
+
+```yaml
+nginx:
+  ports:
+    - "8443:443"
+  networks: [dmz, interna]
+api:
+  networks: [interna]   # sin ports
+```
+
+¿Qué significa que Nginx haga de **pasarela**?
 
 - A) Que guarda copias de seguridad
 - B) Que es el único punto de entrada: toda petición pasa por él antes de llegar a la API
@@ -869,7 +911,14 @@ Si levantaras una **VPN** que te conectase a esa red `interna`, ¿qué cambiarí
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> <code>-x509</code> genera un certificado autofirmado: el propio sujeto lo firma, sin que ninguna CA lo valide. Perfecto para pruebas, inaceptable para producción.</details>
 
-**20.** La API tiene un endpoint `/salud` que responde sin pedir ningún token, y un endpoint `/empleados` que sí lo exige. ¿Por qué es buena práctica que el endpoint de salud sea público?
+**20.** La API tiene dos endpoints con comportamiento distinto:
+
+```bash
+curl -k https://localhost:8443/salud       # → 200, sin token
+curl -k https://localhost:8443/empleados   # → 401, sin token
+```
+
+¿Por qué tiene sentido que `/salud` sea público y `/empleados` requiera token?
 
 - A) Para evitar usar el certificado
 - B) Para que sistemas de monitorización puedan verificar que el servicio está vivo sin necesitar credenciales

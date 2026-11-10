@@ -939,10 +939,14 @@ Ejecútalo. ¿Cuántos de los primeros 8 caracteres coinciden? ¿Qué demuestra?
 
 ## Cómo se evalúa esta unidad (RA1)
 
-La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tipo test**.
+La UT1 y la UT2 forman el **1.er trimestre**. Cada una se evalúa por separado con un **examen tipo test de 20 preguntas**, 4 opciones y una sola respuesta correcta.
 
 !!! tip "La nota, sin sorpresas"
-    **Nota = (aciertos ÷ nº de preguntas) × 10.** Los fallos no restan. Se aprueba con 5.
+    **Nota = (aciertos − fallos ÷ 3) ÷ 20 × 10**
+
+    - Acertar suma 1 punto. Fallar resta ⅓ de punto. Dejar en blanco no penaliza.
+    - Se necesita **5 o más** para superar el RA.
+    - Ejemplo: 14 aciertos y 4 fallos → (14 − 4/3) / 20 × 10 = **6,3**
 
 ## Simulacro de examen tipo test
 
@@ -963,7 +967,16 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: C.</b> El hash es determinista (misma entrada exacta → mismo hash), pero sensible a mayúsculas: "hola" y "Hola" son cadenas distintas y producen hashes distintos.</details>
 
-**2.** El **efecto avalancha** que viste en `avalancha.py` significa que:
+**2.** Ejecutaste este código y viste que dos cadenas casi idénticas dan hashes completamente distintos:
+
+```python
+import hashlib
+h = lambda t: hashlib.sha256(t.encode()).hexdigest()
+print(h("seguridad"))   # a7f3...
+print(h("Seguridad"))   # 9c2b...  ← cambia una letra, cambia todo
+```
+
+¿Cómo se llama esta propiedad del hash?
 
 - A) El hash crece con el tamaño del fichero
 - B) Cambiar un solo carácter de la entrada cambia casi todo el hash
@@ -972,7 +985,16 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Viste en el lab que "seguridad" y "Seguridad" producen hashes completamente distintos a pesar de diferir solo en una letra.</details>
 
-**3.** En `forense.py` guardaste un `precinto` (el hash del fichero antes de analizarlo). En `forense_manipulada.py` alteraste el fichero. ¿Qué ocurrió al comparar?
+**3.** En el análisis forense calculaste el hash del fichero original y lo guardaste como precinto. Luego alteraste una línea del fichero y volviste a calcular el hash:
+
+```python
+precinto  = sha256_fichero("prueba.log")   # antes de tocar nada
+# ... (alguien modifica el fichero) ...
+actual = sha256_fichero("prueba.log")
+print(precinto == actual)
+```
+
+¿Qué imprimió esa comparación?
 
 - A) El hash siguió siendo el mismo porque el fichero es pequeño
 - B) El hash cambió: la comparación devolvió `False`, detectando la alteración
@@ -990,7 +1012,17 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Si el hash del fichero analizado coincide con el precinto tomado al inicio, nadie lo alteró. Es la base de la cadena de custodia.</details>
 
-**5.** En `simetrico_fernet.py` viste que manipular el token cifrado lanza `InvalidToken`. ¿Por qué?
+**5.** En el laboratorio cifraste un mensaje con Fernet, modificaste un byte del token cifrado e intentaste descifrarlo:
+
+```python
+from cryptography.fernet import Fernet, InvalidToken
+f = Fernet(Fernet.generate_key())
+token = f.encrypt(b"secreto")
+token_manipulado = token[:-3]   # cortar los últimos bytes
+f.decrypt(token_manipulado)     # → lanza InvalidToken
+```
+
+¿Por qué Fernet detecta la manipulación si es solo un cifrado?
 
 - A) Porque Fernet solo acepta tokens de 256 bytes exactos
 - B) Porque Fernet es cifrado autenticado: verifica la integridad antes de descifrar
@@ -999,7 +1031,16 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Fernet combina cifrado y autenticación (AEAD). Si alguien modifica el texto cifrado, la verificación falla y no se descifra nada.</details>
 
-**6.** En `cifrar.py` cargaste `luis_publica.pem` para cifrar el mensaje. ¿Por qué la clave pública de Luis y no la tuya?
+**6.** Para enviar un mensaje secreto a Luis cargaste su clave pública:
+
+```python
+# cifrar.py
+with open("luis_publica.pem", "rb") as f:
+    clave_publica = serialization.load_pem_public_key(f.read())
+mensaje_cifrado = clave_publica.encrypt(mensaje, padding.OAEP(...))
+```
+
+¿Por qué la clave pública de Luis y no la tuya propia?
 
 - A) Porque la tuya no está en formato PEM
 - B) Porque solo la clave privada de Luis puede descifrar lo que se cifra con su pública
@@ -1008,7 +1049,16 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> En cifrado asimétrico, lo que se cifra con la pública solo se puede descifrar con la privada correspondiente. Es lo que garantiza que solo Luis pueda leer el mensaje.</details>
 
-**7.** En `espia.py`, Eva tiene la clave pública de Luis y el mensaje cifrado. ¿Puede leer el mensaje?
+**7.** Eva intercepta el mensaje cifrado y tiene la clave pública de Luis (que es pública, cualquiera puede tenerla):
+
+```python
+# espia.py — Eva intenta descifrar
+clave_publica_luis = ...   # la tiene
+mensaje_cifrado    = ...   # lo interceptó
+# ¿puede descifrar con la clave pública?
+```
+
+¿Puede Eva leer el mensaje?
 
 - A) Sí, con la clave pública con la que se cifró
 - B) No: descifrar exige la clave privada de Luis, que solo él tiene
@@ -1017,7 +1067,14 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La clave pública solo cifra. Descifrar exige la privada, que nunca se comparte. Eva puede tener la pública y el mensaje cifrado, y seguir sin poder leerlo.</details>
 
-**8.** En `descifrar.py`, al cargar la clave privada usaste `password=None`. ¿Qué significa?
+**8.** Al cargar la clave privada para descifrar escribiste:
+
+```python
+with open("luis_privada.pem", "rb") as f:
+    clave_privada = serialization.load_pem_private_key(f.read(), password=None)
+```
+
+¿Qué indica `password=None` en esta llamada?
 
 - A) Que la clave es pública
 - B) Que el fichero `.pem` no está protegido con contraseña
@@ -1026,7 +1083,18 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Las claves privadas en PEM pueden estar protegidas con contraseña. <code>password=None</code> indica que este fichero no la tiene.</details>
 
-**9.** En `firmar.py`, Ana firmó con `PSS` usando su **clave privada**. ¿Qué garantiza esa firma?
+**9.** Ana firmó el contrato con su clave privada:
+
+```python
+# firmar.py
+firma = clave_privada_ana.sign(
+    contrato,
+    padding.PSS(...),
+    hashes.SHA256()
+)
+```
+
+¿Qué garantiza esa firma a quien la reciba?
 
 - A) Que el mensaje está cifrado
 - B) Que fue Ana quien firmó y que el documento no fue alterado después
@@ -1035,7 +1103,14 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La firma digital garantiza autoría (solo Ana tiene su clave privada) e integridad (cualquier cambio en el documento invalida la firma).</details>
 
-**10.** En `verificar.py` alteraste `contrato.txt` antes de verificar. ¿Qué resultado obtuvo la verificación?
+**10.** Luis verifica la firma de Ana sobre el contrato. Antes de verificar cambiaste una línea del fichero:
+
+```python
+# verificar.py
+clave_publica_ana.verify(firma, contrato_modificado, padding.PSS(...), hashes.SHA256())
+```
+
+¿Qué ocurrió?
 
 - A) `True`, porque la clave pública era la correcta
 - B) `False` / `InvalidSignature`, porque el documento ya no coincide con lo que se firmó
@@ -1044,7 +1119,16 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> La firma se calculó sobre el documento exacto. Cualquier cambio, por mínimo que sea, hace que la verificación falle.</details>
 
-**11.** En `impostor.py`, alguien firma con su propia clave privada y Luis verifica con `ana_publica.pem`. ¿Qué ocurre?
+**11.** Un impostor firma el contrato con su propia clave privada (no la de Ana). Luis verifica con la clave pública de Ana:
+
+```python
+# impostor firma con su clave
+firma_falsa = clave_privada_impostor.sign(contrato, ...)
+# Luis verifica con la pública de Ana
+clave_publica_ana.verify(firma_falsa, contrato, ...)
+```
+
+¿Qué resultado obtiene Luis?
 
 - A) La verificación da `True` porque la firma es válida
 - B) La verificación falla: la firma no corresponde a la clave pública de Ana
@@ -1071,7 +1155,14 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Las cabeceras PEM identifican el tipo de contenido. <code>BEGIN PRIVATE KEY</code> indica clave privada; <code>BEGIN PUBLIC KEY</code> indica clave pública.</details>
 
-**14.** En `certificado_x509.py`, el certificado generado tenía `subject == issuer`. ¿Qué tipo de certificado es?
+**14.** Al generar el certificado en el lab viste que el campo "emitido por" coincide con el campo "sujeto":
+
+```
+Subject: CN=intranet.local
+Issuer:  CN=intranet.local   ← mismo que el sujeto
+```
+
+¿Qué tipo de certificado es cuando el emisor y el sujeto son el mismo?
 
 - A) Emitido por una CA reconocida
 - B) Autofirmado
@@ -1080,7 +1171,17 @@ print(h("hola") == h("hola"), h("hola") == h("Hola"))
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Cuando el sujeto y el emisor son el mismo, el certificado se firma a sí mismo: es autofirmado. No hay ninguna CA que lo avale.</details>
 
-**15.** ¿Qué diferencia hay entre **OAEP** (usado en `cifrar.py`) y **PSS** (usado en `firmar.py`)?
+**15.** En el lab usaste dos rellenos distintos de RSA según la operación:
+
+```python
+# cifrar.py  → OAEP
+clave_publica.encrypt(mensaje, padding.OAEP(...))
+
+# firmar.py  → PSS
+clave_privada.sign(documento, padding.PSS(...), ...)
+```
+
+¿Por qué se usan rellenos distintos para cifrar y para firmar?
 
 - A) Son intercambiables
 - B) OAEP es el relleno para cifrar con RSA; PSS es el relleno para firmar con RSA

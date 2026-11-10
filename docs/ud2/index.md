@@ -506,10 +506,14 @@ Explica qué hace cada parte separada por `|`. ¿Qué ocurriría si quitaras el 
 
 ## Cómo se evalúa esta unidad (RA2)
 
-La UT1 y la UT2 forman el **1.er trimestre**, que se evalúa con un **examen tipo test**.
+La UT1 y la UT2 forman el **1.er trimestre**. Cada una se evalúa por separado con un **examen tipo test de 20 preguntas**, 4 opciones y una sola respuesta correcta.
 
 !!! tip "La nota, sin sorpresas"
-    **Nota = (aciertos ÷ nº de preguntas) × 10.** Los fallos no restan. Se aprueba con 5.
+    **Nota = (aciertos − fallos ÷ 3) ÷ 20 × 10**
+
+    - Acertar suma 1 punto. Fallar resta ⅓ de punto. Dejar en blanco no penaliza.
+    - Se necesita **5 o más** para superar el RA.
+    - Ejemplo: 14 aciertos y 4 fallos → (14 − 4/3) / 20 × 10 = **6,3**
 
 ## Simulacro de examen tipo test
 
