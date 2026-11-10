@@ -40,6 +40,34 @@ La regla de oro: **desde Internet nunca se llega directamente a la red interna**
 - **Cortafuegos (firewall):** el portero que decide qué tráfico pasa, según reglas.
 - **Segmentación de redes:** dividir la red en zonas aisladas, de modo que un problema en una no contamine las demás. Es lo que harás con las dos redes Docker del laboratorio.
 
+#### Puertos TCP: las puertas del servidor
+
+Imagina el servidor como un edificio con **65 535 puertas numeradas**. Cada servicio escucha detrás de una puerta concreta y espera que alguien llame. Cuando tu navegador escribe `https://servidor`, llama siempre a la puerta **443** porque HTTPS tiene ese número asignado por convenio internacional.
+
+```
+Puerto  Servicio         ¿Lo viste en el curso?
+──────  ───────────────  ──────────────────────
+   22   SSH              UT3 · acceso remoto cifrado
+   80   HTTP             UT3 · Nginx recibe y redirige a 443
+  443   HTTPS            UT3 · Nginx con TLS (lab: puerto 8443)
+ 3306   MySQL/MariaDB    UT2 · nmap lo escaneó en el Lab 2
+ 8000   API del lab      UT3 · FastAPI, solo accesible desde la red interna
+ 8443   HTTPS del lab    UT3 · puerto no estándar para no necesitar root
+```
+
+Tres estados posibles cuando nmap (o `curl`) intenta conectarse a un puerto:
+
+| Estado | Qué significa | Ejemplo en el curso |
+|---|---|---|
+| **open** | Hay un servicio escuchando | Puerto 80 en el Lab 2 de UT2 |
+| **closed** | El sistema responde pero nadie escucha → *Connection refused* | Puertos 22, 443… en el Lab 2 |
+| **filtered** | Un firewall descarta el paquete sin responder | Lo que hace el FW exterior en la DMZ |
+
+La regla de oro para un administrador: **cuantos menos puertos abiertos, menor es la superficie de ataque**. Cada puerta abierta es una que un atacante puede intentar cruzar.
+
+!!! tip "Puertos no estándar"
+    En el laboratorio usamos el **8443** en vez del 443 y el **8080** en vez del 80. Los puertos por debajo del 1024 requieren permisos de administrador (root) para usarlos. En desarrollo se usan puertos altos para no necesitar sudo.
+
 ### 1.2 Protocolos seguros: HTTP/HTTPS, TLS y SSH
 
 | Protocolo | Para qué | ¿Cifrado? |
@@ -453,7 +481,6 @@ curl -k -o /dev/null -s -w "%{http_code}\n" -H "X-Token: secreto-de-laboratorio"
 return 301 https://$host$request_uri;
 ```
 Prueba `curl -i http://localhost:8080/salud`. ¿Qué código HTTP ves en la primera línea de la respuesta? ¿Qué hace Nginx con tu petición?
-
 ## Cómo se evalúa esta unidad (RA3)
 
 La UT3 se evalúa con un **examen tipo test**.
@@ -778,3 +805,30 @@ def listar(x_token: str = Header(default="")):
 - D) Para que los atacantes no detecten el servidor
 
 <details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Los sistemas de monitorización (balanceadores, orquestadores como Kubernetes) comprueban la salud del servicio periódicamente. Necesitan hacerlo sin autenticarse.</details>
+
+**21.** En el laboratorio, Nginx escucha en el puerto **8443** en vez del 443 estándar. ¿Por qué?
+
+- A) El 443 es menos seguro
+- B) Los puertos por debajo del 1024 requieren permisos de root; el 8443 no
+- C) El 8443 es más rápido
+- D) El certificado solo funciona en el 8443
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> En Linux, los puertos privilegiados (0-1023) solo los puede abrir el usuario root. En el laboratorio corremos como usuario sin privilegios, así que usamos el 8443 (equivalente al 443) y el 8080 (equivalente al 80) para no necesitar sudo.</details>
+
+**22.** nmap encontró el puerto 80 como `open` y el 22 como `closed` en el servidor del Lab 2. ¿Qué diferencia hay entre `open` y `closed`?
+
+- A) `open` es más rápido que `closed`
+- B) `open` significa que hay un servicio escuchando; `closed` significa que el sistema responde pero nadie escucha en ese puerto
+- C) `closed` significa que hay un firewall bloqueando
+- D) Son sinónimos, nmap los usa indistintamente
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> Un puerto <code>open</code> tiene un servicio activo (nginx en el 80). Un puerto <code>closed</code> el sistema operativo lo conoce pero no hay nadie detrás: si conectas, obtienes <i>Connection refused</i>. Un tercer estado, <code>filtered</code>, indica que un firewall descarta los paquetes sin responder.</details>
+
+**23.** ¿Por qué la API del laboratorio (que escucha en el puerto 8000) no es accesible desde tu PC aunque el contenedor esté en marcha?
+
+- A) Porque el puerto 8000 está reservado
+- B) Porque sin `ports:` en el compose, el puerto 8000 no está publicado hacia el anfitrión: solo existe dentro de la red Docker
+- C) Porque la API tiene un error de configuración
+- D) Porque el puerto 8000 requiere HTTPS
+
+<details class="sol"><summary>Ver respuesta</summary><b>Correcta: B.</b> En Docker Compose, <code>ports:</code> es el puente entre el puerto del contenedor y tu máquina. Sin ese puente, el servicio escucha internamente pero es invisible desde fuera. Es la implementación práctica del aislamiento de redes: la API vive en la red <code>interna</code> y no tiene salida.</details>
