@@ -570,15 +570,24 @@ Si quieres practicar SSH de verdad — ver cómo se establece la conexión, usar
 ```dockerfile title="nginx/Dockerfile (versión con SSH)"
 FROM nginx:1.27-alpine
 
-# instalar OpenSSH
+# instalar OpenSSH y prepararlo
 RUN apk add --no-cache openssh \
+    && ssh-keygen -A \
     && echo "root:laboratorio" | chpasswd \
     && sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config \
-    && ssh-keygen -A
+    && sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-# arrancar SSH y Nginx juntos
-CMD sh -c "sshd && nginx -g 'daemon off;'"
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# arrancar sshd primero, luego nginx en primer plano
+CMD ["/bin/sh", "-c", "/usr/sbin/sshd && nginx -g 'daemon off;'"]
 ```
+
+Tres detalles importantes de este Dockerfile:
+
+- **`ssh-keygen -A`** genera las claves del host durante la construcción de la imagen. Sin esto, `sshd` arranca pero rechaza las conexiones inmediatamente (*Connection reset*).
+- **`PasswordAuthentication yes`** activa el login con contraseña. En Alpine viene desactivado por defecto — sin esta línea el SSH acepta la conexión pero la corta al pedir credenciales.
+- **`CMD` con array** (`["/bin/sh", "-c", "..."]`): arranca `sshd` en segundo plano y luego nginx en primer plano. Si nginx muere, el contenedor para; si solo muere sshd, nginx sigue.
 
 Y añadir el puerto 22 en `compose.yaml`:
 
